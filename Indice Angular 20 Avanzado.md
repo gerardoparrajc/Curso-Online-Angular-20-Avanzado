@@ -1,6 +1,6 @@
 # Temario del curso Angular 20 Avanzado
 
-## 1. Repaso de las novedades y fundamentos avanzados incorporados en Angular 20
+## [1. Repaso de las novedades y fundamentos avanzados incorporados en Angular 20](Tema%201.md)
 
 - Standalone Components y el fin progresivo de NgModules  
 - Nueva sintaxis de control flow (`@if`, `@for`, `@switch`)  
