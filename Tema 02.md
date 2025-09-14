@@ -861,11 +861,11 @@ Para utilizar los datos que devuelve este modo, utilizamos el signal `progress()
 
 
 
-### 2.8 Uso de operadores RxJS aplicados a Signals y viceversa
+## 2.8 Uso de operadores RxJS aplicados a Signals y viceversa
 
 En Angular 20, la interoperabilidad entre Signals y RxJS es muy potente y flexible. Aunque los Signals están pensados para manejar el estado actual de forma reactiva y sencilla, hay ocasiones en las que los operadores de RxJS nos permiten realizar transformaciones, filtrados o combinaciones avanzadas que serían más complejas de implementar solo con Signals.
 
-#### 2.8.1 ¿Por qué combinar Signals y operadores RxJS?
+### 2.8.1 ¿Por qué combinar Signals y operadores RxJS?
 
 Los operadores de RxJS (como `map`, `filter`, `debounceTime`, `switchMap`, etc.) son ideales para trabajar con flujos de datos asíncronos, temporales o que requieren lógica de transformación compleja. Los Signals, por su parte, son perfectos para representar el “valor actual” y derivar nuevos valores de forma declarativa y eficiente.
 
@@ -874,7 +874,7 @@ La clave está en saber cuándo conviene usar cada herramienta y cómo conectarl
 - Si necesitas lógica temporal, operadores avanzados o integración con APIs que esperan Observables, usa RxJS.
 - Si solo necesitas derivar valores actuales y mantener el estado sincronizado, Signals son más directos.
 
-#### 2.8.2 De Signal a Observable: aplicar operadores RxJS
+### 2.8.2 De Signal a Observable: aplicar operadores RxJS
 
 Puedes convertir cualquier Signal en un Observable usando la función `toObservable` del paquete `@angular/core/rxjs-interop`. Una vez convertido, puedes aplicar cualquier operador de RxJS sobre ese Observable.
 
@@ -905,7 +905,7 @@ results$.subscribe(data => {
 
 En este ejemplo, el Signal `search` se convierte en un Observable, sobre el que aplicamos operadores RxJS para controlar el flujo de peticiones HTTP.
 
-#### 2.8.3 De Observable a Signal: usar operadores y derivar estado
+### 2.8.3 De Observable a Signal: usar operadores y derivar estado
 
 Si tienes un Observable (por ejemplo, de una API, un WebSocket, o una librería externa), puedes aplicar operadores RxJS y luego convertir el resultado en un Signal usando `toSignal`.
 
@@ -925,7 +925,7 @@ const userNameSignal = toSignal(userName$, { initialValue: '' });
 
 Esto te permite aprovechar la potencia de RxJS para transformar los datos y luego integrarlos en el sistema de Signals de Angular, manteniendo la reactividad y la eficiencia.
 
-#### 2.8.4 Ejemplo completo: búsqueda reactiva con debounce y estado
+### 2.8.4 Ejemplo completo: búsqueda reactiva con debounce y estado
 
 Veamos un ejemplo donde combinamos ambos mundos para una búsqueda reactiva:
 
@@ -952,7 +952,7 @@ resultsSignal = toSignal(results$, { initialValue: [] });
 
 Así, el usuario puede escribir en el campo de búsqueda, el Signal `query` se actualiza, el Observable aplica el debounce y la petición HTTP, y el Signal final `resultsSignal` contiene los resultados listos para mostrar en la interfaz.
 
-#### 2.8.5 Recomendaciones y buenas prácticas
+### 2.8.5 Recomendaciones y buenas prácticas
 
 - Usa Signals para el estado local y derivaciones simples.
 - Usa RxJS y sus operadores para lógica temporal, flujos asíncronos y transformaciones complejas.
@@ -961,5 +961,149 @@ Así, el usuario puede escribir en el campo de búsqueda, el Signal `query` se a
 - Recuerda que los Signals son más eficientes para leer el valor actual y evitar recálculos innecesarios.
 
 
+
+## 2.9 Implementación de patrones arquitectónicos con Signals (state management)
+
+En aplicaciones Angular avanzadas, la gestión del estado (state management) es clave para mantener el código organizado, predecible y fácil de mantener. Tradicionalmente, se han usado librerías como NgRx, Akita o incluso servicios con RxJS para este propósito. Sin embargo, con la llegada de Signals en Angular 20, podemos implementar patrones arquitectónicos robustos de forma más sencilla y directa, sin perder claridad ni escalabilidad.
+
+### 2.9.1 ¿Por qué usar Signals para el state management?
+
+Los Signals permiten:
+- Representar el estado actual de manera reactiva y eficiente.
+- Derivar datos fácilmente con `computed`.
+- Encapsular la mutabilidad y exponer solo lo necesario.
+- Evitar fugas de memoria y suscripciones manuales.
+
+Esto facilita la implementación de patrones como el Store, el patrón de selector, y la separación clara entre lógica de negocio y presentación.
+
+### 2.9.2 Patrón Store con Signals
+
+El patrón Store consiste en centralizar el estado de una funcionalidad en una clase, exponiendo solo los datos y métodos necesarios. Con Signals, esto se vuelve muy natural:
+
+```ts
+import { signal, computed } from '@angular/core';
+
+interface Product {
+	id: string;
+	name: string;
+	price: number;
+	stock: number;
+}
+
+export class ProductsStore {
+	// Estado privado
+	private readonly _products = signal<Product[]>([]);
+	private readonly _filter = signal<string>('');
+
+	// Estado público (solo lectura)
+	readonly products = this._products.asReadonly();
+	readonly filter = this._filter.asReadonly();
+
+	// Selector derivado
+	readonly visibleProducts = computed(() => {
+		const f = this._filter().toLowerCase();
+		return this._products().filter(p => p.name.toLowerCase().includes(f));
+	});
+
+	// Métodos para modificar el estado
+	setFilter(value: string) {
+		this._filter.set(value);
+	}
+
+	addProduct(product: Product) {
+		this._products.update(list => [...list, product]);
+	}
+
+	removeProduct(id: string) {
+		this._products.update(list => list.filter(p => p.id !== id));
+	}
+}
+```
+
+**Ventajas:**
+- El estado está encapsulado y solo se modifica a través de métodos.
+- Los componentes solo leen el estado necesario y reaccionan automáticamente a los cambios.
+- Los datos derivados (`visibleProducts`) se recalculan solo cuando cambian las dependencias.
+
+### 2.9.3 Selectores y lógica derivada
+
+Los selectores (`computed`) permiten obtener datos derivados del estado base, evitando duplicar lógica y facilitando la reutilización. Puedes crear tantos selectores como necesites, agrupando lógica de negocio y manteniendo los componentes limpios.
+
+**Ejemplo:**
+
+```ts
+readonly totalStock = computed(() =>
+	this._products().reduce((acc, p) => acc + p.stock, 0)
+);
+
+readonly expensiveProducts = computed(() =>
+	this._products().filter(p => p.price > 1000)
+);
+```
+
+### 2.9.4 Encapsulación y control de mutabilidad
+
+Es recomendable exponer solo Signals de solo lectura (`asReadonly()`) y métodos claros para modificar el estado. Así evitas cambios accidentales y mantienes la lógica centralizada.
+
+**Ejemplo de uso en un componente:**
+
+```ts
+@Component({
+	selector: 'app-products',
+	template: `
+		<input (input)="store.setFilter($event.target.value)" placeholder="Buscar...">
+		<ul>
+			@for(p of store.visibleProducts(); track p.id) {
+				<li>
+					{{ p.name }} - {{ p.price }}€
+					<button (click)="store.removeProduct(p.id)">Eliminar</button>
+				</li>
+			}
+		</ul>
+		<p>Total en stock: {{ store.totalStock() }}</p>
+	`
+})
+export class ProductsComponent {
+	store = inject(ProductsStore);
+}
+```
+
+### 2.9.5 Integración con recursos asíncronos
+
+Puedes combinar Signals con `resource` para cargar datos desde APIs y mantener el estado sincronizado:
+
+```ts
+import { signal, resource } from '@angular/core';
+
+const reloadVersion = signal(0);
+const productsResource = resource({
+	request: () => reloadVersion(),
+	loader: async ({ abortSignal }) => {
+		const r = await fetch('/api/products', { signal: abortSignal });
+		if (!r.ok) throw new Error('Error');
+		return r.json();
+	}
+});
+
+function reloadProducts() {
+	reloadVersion.update(v => v + 1);
+}
+```
+
+Así puedes refrescar los datos fácilmente y mostrar estados de carga o error en la interfaz.
+
+### 2.9.6 Composición y escalabilidad
+
+Puedes crear varios Stores para distintas partes de la aplicación (usuarios, productos, carrito, etc.), y componerlos según las necesidades. Signals y `computed` facilitan la composición y el desacoplamiento.
+
+**Ejemplo de composición:**
+
+```ts
+class AppStore {
+	users = inject(UsersStore);
+	products = inject(ProductsStore);
+	// Puedes crear selectores globales si lo necesitas
+}
+```
 
 
