@@ -1102,8 +1102,133 @@ Puedes crear varios Stores para distintas partes de la aplicación (usuarios, pr
 class AppStore {
 	users = inject(UsersStore);
 	products = inject(ProductsStore);
-	// Puedes crear selectores globales si lo necesitas
 }
+```
+
+
+## 2.10 Anti-patrones comunes y cómo evitarlos en aplicaciones reales
+
+Al trabajar con Signals en Angular 20, es fácil caer en ciertos anti-patrones que pueden dificultar el mantenimiento, la escalabilidad o el rendimiento de la aplicación. Reconocer estos errores y saber cómo evitarlos te ayudará a escribir código más limpio, eficiente y fácil de entender.
+
+### 2.10.1 Anti-patrón: Mutar estructuras internas sin cambiar la referencia
+
+**Problema:**
+Modificar directamente arrays u objetos dentro de un Signal (por ejemplo, usando `.push()` o cambiando una propiedad) impide que Angular detecte el cambio y actualice la interfaz.
+
+**Ejemplo incorrecto:**
+```ts
+const items = signal<string[]>([]);
+items().push('nuevo'); // No se detecta el cambio
+```
+
+**Solución:**
+Siempre crea una nueva referencia al modificar arrays u objetos.
+```ts
+items.update(list => [...list, 'nuevo']);
+```
+
+### 2.10.2 Anti-patrón: Exponer Signals mutables directamente
+
+**Problema:**
+Permitir que los componentes accedan y modifiquen Signals mutables directamente puede provocar cambios accidentales y dificultar el seguimiento del estado.
+
+**Ejemplo incorrecto:**
+```ts
+export const count = signal(0); // Mutable y público
+```
+
+**Solución:**
+Encapsula el Signal y expón solo la versión de solo lectura junto con métodos claros para modificar el estado.
+```ts
+private readonly _count = signal(0);
+readonly count = this._count.asReadonly();
+increment() { this._count.update(v => v + 1); }
+```
+
+### 2.10.3 Anti-patrón: Dividir el estado en demasiados Signals pequeños
+
+**Problema:**
+Crear Signals para cada propiedad individual puede fragmentar el estado y dificultar la comprensión global de la aplicación.
+
+**Ejemplo incorrecto:**
+```ts
+const name = signal('');
+const age = signal(0);
+const active = signal(true);
+```
+
+**Solución:**
+Agrupa propiedades relacionadas en un solo objeto o array dentro de un Signal.
+```ts
+const user = signal({ name: '', age: 0, active: true });
+```
+
+### 2.10.4 Anti-patrón: Usar Signals para variables temporales o locales
+
+**Problema:**
+No tiene sentido crear Signals para datos que solo existen dentro de una función o método y no forman parte del estado reactivo de la aplicación.
+
+**Ejemplo incorrecto:**
+```ts
+function calcular() {
+	const temp = signal(0); // No es necesario
+	// ...
+}
+```
+
+**Solución:**
+Usa variables normales para datos temporales y Signals solo para estado que deba ser reactivo y compartido.
+
+### 2.10.5 Anti-patrón: Mezclar lógica de negocio y de presentación en los métodos de los Stores
+
+**Problema:**
+Incluir lógica de presentación (como mostrar mensajes, manipular el DOM, etc.) dentro de los métodos que modifican el estado dificulta la reutilización y las pruebas.
+
+**Ejemplo incorrecto:**
+```ts
+addProduct(product) {
+	this._products.update(list => [...list, product]);
+	alert('Producto añadido'); // Lógica de presentación
+}
+```
+
+**Solución:**
+Mantén los Stores enfocados en la lógica de negocio y deja la presentación para los componentes.
+
+### 2.10.6 Anti-patrón: Efectos que calculan valores en vez de disparar acciones externas
+
+**Problema:**
+Usar `effect` para calcular valores derivados en vez de disparar acciones externas puede provocar recálculos innecesarios y confusión.
+
+**Ejemplo incorrecto:**
+```ts
+effect(() => {
+	this.total = this.items().length; // Esto debería ser un computed
+});
+```
+
+**Solución:**
+Usa `computed` para valores derivados y reserva `effect` para acciones externas (logs, persistencia, side effects).
+
+### 2.10.7 Anti-patrón: No limpiar recursos en efectos
+
+**Problema:**
+Crear intervalos, listeners o suscripciones dentro de un `effect` sin usar `onCleanup` puede provocar fugas de memoria.
+
+**Ejemplo incorrecto:**
+```ts
+effect(() => {
+	setInterval(() => { ... }, 1000); // No se limpia
+});
+```
+
+**Solución:**
+Usa el callback `onCleanup` para limpiar recursos cuando el efecto se destruye o se vuelve a ejecutar.
+```ts
+effect(onCleanup => {
+	const id = setInterval(() => { ... }, 1000);
+	onCleanup(() => clearInterval(id));
+});
 ```
 
 
