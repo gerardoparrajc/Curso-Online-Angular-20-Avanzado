@@ -200,3 +200,74 @@ En este ejemplo, el componente está en modo `OnPush`, pero el cambio en el Sign
 - Mantén los inputs inmutables y usa Signals para datos que cambian frecuentemente.
 - Evita mutar objetos/arrays en sitio: crea nuevas referencias para que Angular detecte los cambios.
 
+
+## 3.4 Métodos clásicos (`markForCheck`, `detach`, `detectChanges`) en modo legacy
+
+A pesar de los avances en Angular 20 con Signals y el nuevo Change Detection, los métodos clásicos siguen siendo relevantes en proyectos legacy o cuando se necesita un control manual sobre la actualización de la vista. Estos métodos forman parte de la API de `ChangeDetectorRef` y permiten gestionar la detección de cambios de forma explícita.
+
+### 3.4.1 `markForCheck()`
+
+Este método se usa principalmente en componentes con estrategia `OnPush`. Cuando Angular no detecta automáticamente un cambio (por ejemplo, tras modificar datos fuera del flujo normal de Angular), puedes llamar a `markForCheck()` para indicar que el componente debe ser revisado en el próximo ciclo de detección de cambios.
+
+**Ejemplo:**
+```ts
+import { ChangeDetectorRef } from '@angular/core';
+
+constructor(private cdr: ChangeDetectorRef) {}
+
+actualizarDatosExternos() {
+	// Modificas datos desde fuera de Angular
+	this.valor = obtenerValorDeFuera();
+	this.cdr.markForCheck(); // Fuerza la comprobación
+}
+```
+
+### 3.4.2 `detectChanges()`
+
+Este método fuerza la detección de cambios de manera inmediata en el componente y sus hijos. Es útil cuando necesitas actualizar la vista tras un cambio que Angular no detecta automáticamente.
+
+**Ejemplo:**
+```ts
+import { ChangeDetectorRef } from '@angular/core';
+
+constructor(private cdr: ChangeDetectorRef) {}
+
+actualizarManual() {
+	this.valor = nuevoValor;
+	this.cdr.detectChanges(); // Actualiza la vista ahora mismo
+}
+```
+
+### 3.4.3 `detach()`
+
+Permite "desconectar" el componente del árbol de detección de cambios. Una vez llamado, el componente deja de actualizarse automáticamente hasta que se vuelva a conectar con `reattach()`.
+
+**Ejemplo:**
+```ts
+import { ChangeDetectorRef } from '@angular/core';
+
+constructor(private cdr: ChangeDetectorRef) {}
+
+pausarActualizaciones() {
+	this.cdr.detach(); // El componente deja de actualizarse
+}
+
+reanudarActualizaciones() {
+	this.cdr.reattach(); // Vuelve a conectarse al árbol
+}
+```
+
+### ¿Cuándo usar estos métodos?
+
+- En aplicaciones legacy que no usan Signals ni Zoneless Angular.
+- Cuando necesitas controlar manualmente la actualización de la vista por motivos de rendimiento o integración con librerías externas.
+- En casos donde los cambios ocurren fuera del flujo de Angular (por ejemplo, callbacks de librerías JS, Web Workers, etc.).
+
+### Consideraciones
+
+- El uso excesivo de estos métodos puede complicar el mantenimiento y la depuración.
+- En Angular 20, Signals y el nuevo Change Detection suelen hacer innecesario el uso manual de estos métodos en la mayoría de los casos.
+- Si migras a Signals, revisa dónde usas estos métodos y evalúa si puedes simplificar la lógica.
+
+## 3.5 Uso de `effect()` y `computed()` como mecanismo moderno de gestión de cambios
+
