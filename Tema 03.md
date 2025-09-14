@@ -269,5 +269,67 @@ reanudarActualizaciones() {
 - En Angular 20, Signals y el nuevo Change Detection suelen hacer innecesario el uso manual de estos métodos en la mayoría de los casos.
 - Si migras a Signals, revisa dónde usas estos métodos y evalúa si puedes simplificar la lógica.
 
+
 ## 3.5 Uso de `effect()` y `computed()` como mecanismo moderno de gestión de cambios
+
+Con Angular 20, la gestión de cambios en la interfaz ha evolucionado gracias a los nuevos mecanismos reactivos: `effect()` y `computed()`. Estas herramientas permiten una reactividad más precisa, declarativa y eficiente, eliminando la necesidad de gestionar manualmente la detección de cambios en la mayoría de los casos.
+
+### ¿Qué es `computed()`?
+
+`computed()` permite definir valores derivados a partir de uno o varios Signals. Cada vez que cambian los Signals de los que depende, el valor calculado se actualiza automáticamente y solo se recalcula si realmente hay un cambio relevante.
+
+**Ejemplo:**
+```ts
+import { signal, computed } from '@angular/core';
+
+const precio = signal(100);
+const cantidad = signal(2);
+
+const total = computed(() => precio() * cantidad());
+```
+
+En la plantilla:
+```html
+<input type="number" [value]="precio()" (input)="precio.set($event.target.value)">
+<input type="number" [value]="cantidad()" (input)="cantidad.set($event.target.value)">
+<p>Total: {{ total() }}</p>
+```
+
+El valor de `total()` se actualiza automáticamente cuando cambian `precio` o `cantidad`, sin necesidad de gestionar la detección de cambios manualmente.
+
+### ¿Qué es `effect()`?
+
+`effect()` permite ejecutar acciones externas (side effects) cada vez que cambian los Signals de los que depende. Es ideal para tareas como guardar datos, enviar logs, actualizar el almacenamiento local, etc.
+
+**Ejemplo:**
+```ts
+import { signal, effect } from '@angular/core';
+
+const contador = signal(0);
+
+effect(() => {
+	console.log('El contador cambió:', contador());
+});
+
+function incrementar() {
+	contador.update(v => v + 1);
+}
+```
+
+Cada vez que el usuario llama a `incrementar()`, el efecto se ejecuta y muestra el nuevo valor en consola.
+
+### Ventajas frente a métodos clásicos
+
+- No necesitas llamar a `markForCheck`, `detectChanges` ni preocuparte por la estrategia de Change Detection.
+- La reactividad es automática y granular: solo se actualiza lo que realmente depende de los datos cambiados.
+- El código es más declarativo y fácil de mantener.
+
+### Buenas prácticas
+
+- Usa `computed()` para valores derivados y lógica de negocio.
+- Usa `effect()` para acciones externas y sincronización con el mundo exterior.
+- Evita mezclar lógica de presentación y efectos en los mismos métodos.
+- Documenta los efectos para facilitar la depuración.
+
+
 
