@@ -419,3 +419,70 @@ const parametros = computed(() => ({
 Utiliza las herramientas de desarrollo de Angular y el navegador para identificar recomputaciones excesivas. Si detectas cálculos que se disparan demasiado, revisa las dependencias y la estructura de tus Signals y `computed()`.
 
 
+## 3.7 Casos prácticos en los que deshabilitar la propagación del árbol es útil
+
+En Angular 20, la propagación del árbol de Change Detection puede deshabilitarse en componentes concretos para optimizar el rendimiento y evitar actualizaciones innecesarias en partes de la interfaz que no dependen de cambios frecuentes. Esta técnica es especialmente útil en escenarios donde la UI es muy grande, contiene zonas estáticas o se integra con librerías externas.
+
+### ¿Qué significa deshabilitar la propagación del árbol?
+
+Implica que un componente y sus hijos dejan de recibir notificaciones automáticas de cambio desde sus ancestros. Solo se actualizan si:
+- Cambia un Signal usado en su plantilla.
+- Se dispara un evento local.
+- Se marca manualmente como sucio (`markDirty()`, `detectChanges()`).
+
+### Casos prácticos
+
+#### 1. Zonas de la UI que no cambian nunca
+
+Por ejemplo, un pie de página, un banner o un menú estático. Si sabes que esos componentes no dependen de datos reactivos, puedes deshabilitar la propagación para evitar que Angular los revise en cada ciclo.
+
+**Ejemplo:**
+```ts
+@Component({
+	selector: 'app-footer',
+	changeDetection: ChangeDetectionStrategy.OnPush,
+	template: `<footer>© 2025 Mi Empresa</footer>`
+})
+export class FooterComponent {}
+```
+
+#### 2. Integración con librerías externas que gestionan su propio DOM
+
+Si usas un gráfico, mapa o widget que actualiza el DOM por sí mismo (por ejemplo, D3.js, Leaflet, etc.), deshabilitar la propagación evita que Angular intente actualizar esa zona y mejora la compatibilidad y el rendimiento.
+
+#### 3. Listas muy grandes con virtualización
+
+En componentes que muestran miles de elementos (por ejemplo, tablas virtualizadas), puedes deshabilitar la propagación en los elementos hijos para que solo se actualicen los visibles o los que realmente cambian.
+
+#### 4. Paneles, pestañas o modales ocultos
+
+Si tienes paneles o pestañas que no están visibles, puedes deshabilitar la propagación mientras están ocultos y reactivarla solo cuando se muestran, evitando cálculos innecesarios.
+
+#### 5. Animaciones o transiciones gestionadas fuera de Angular
+
+Si una parte de la UI se actualiza por animaciones CSS o JavaScript externo, deshabilitar la propagación evita conflictos y mejora la fluidez.
+
+### ¿Cómo se deshabilita y reactiva la propagación?
+
+En Angular clásico, se usaba `detach()` y `reattach()` del `ChangeDetectorRef`. En Angular 20, puedes usar la nueva API reactiva o estrategias de Change Detection específicas para cada componente.
+
+**Ejemplo:**
+```ts
+constructor(private cdr: ChangeDetectorRef) {}
+
+ngOnInit() {
+	this.cdr.detach(); // Deshabilita la propagación
+}
+
+mostrarPanel() {
+	this.cdr.reattach(); // Reactiva la propagación
+	this.cdr.detectChanges(); // Actualiza la vista
+}
+```
+
+### Recomendaciones
+
+- Usa esta técnica solo en zonas que realmente no necesitan actualizarse frecuentemente.
+- Documenta bien los componentes donde la propagación está deshabilitada para evitar confusiones.
+- Si usas Signals, aprovecha su granularidad para limitar aún más las actualizaciones.
+
