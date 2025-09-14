@@ -30,7 +30,7 @@
 
 ---
 
-## 3. Change Detection avanzado en Angular 20
+## [3. Change Detection avanzado en Angular 20](Tema%2003.md)
 
 - Conceptos fundamentales del Change Detection en Angular  
 - Zoneless Angular: funcionamiento interno sin Zone.js  
