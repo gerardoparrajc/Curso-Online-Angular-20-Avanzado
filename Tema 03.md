@@ -145,3 +145,58 @@ Sin Zone.js, Angular actualiza solo el `<p>` cuando el Signal `contador` cambia,
 - Si tu app depende de librerías que requieren Zone.js, revisa la compatibilidad antes de desactivarlo.
 - Puedes migrar gradualmente, usando Signals y OnPush, y desactivando Zone.js cuando estés listo.
 
+
+
+## 3.3 Estrategias `OnPush` en coexistencia con Signals
+
+La estrategia `OnPush` ha sido durante años la clave para optimizar el rendimiento en Angular, ya que limita la detección de cambios a situaciones concretas: cuando cambian los inputs del componente, se dispara un evento en el propio componente, o se marca manualmente como sucio (`markDirty()`).
+
+Con la llegada de Signals en Angular 20, `OnPush` y Signals pueden coexistir y potenciarse mutuamente, permitiendo aplicaciones aún más eficientes y reactivas.
+
+### ¿Cómo funciona `OnPush`?
+
+Cuando un componente usa `ChangeDetectionStrategy.OnPush`, Angular solo actualiza la vista si:
+- Cambia un input del componente.
+- Se dispara un evento en el componente (click, input, etc.).
+- Se llama manualmente a métodos como `markDirty()`.
+
+Esto reduce el número de comprobaciones y mejora el rendimiento, especialmente en aplicaciones grandes.
+
+### Signals y `OnPush`: ¿cómo interactúan?
+
+Los Signals introducen una reactividad granular: Angular sabe exactamente qué partes de la plantilla dependen de cada Signal. Cuando un Signal cambia, solo se actualizan los componentes y vistas que realmente lo usan, incluso si el componente está en modo `OnPush`.
+
+**Ventaja:**
+- No necesitas preocuparte por marcar el componente como sucio: el cambio en el Signal lo hace automáticamente.
+- Puedes combinar datos inmutables (inputs) y Signals para obtener lo mejor de ambos mundos.
+
+### Ejemplo práctico
+
+```ts
+import { Component, signal, ChangeDetectionStrategy } from '@angular/core';
+
+@Component({
+	selector: 'app-contador',
+	changeDetection: ChangeDetectionStrategy.OnPush,
+	template: `
+		<button (click)="incrementar()">Sumar</button>
+		<p>Contador: {{ contador() }}</p>
+	`
+})
+export class ContadorComponent {
+	contador = signal(0);
+	incrementar() {
+		this.contador.update(v => v + 1);
+	}
+}
+```
+
+En este ejemplo, el componente está en modo `OnPush`, pero el cambio en el Signal `contador` actualiza la vista automáticamente, sin necesidad de marcar el componente como sucio.
+
+### Buenas prácticas en coexistencia
+
+- Usa `OnPush` en todos los componentes salvo casos muy específicos.
+- Prefiere Signals para el estado local y derivaciones reactivas.
+- Mantén los inputs inmutables y usa Signals para datos que cambian frecuentemente.
+- Evita mutar objetos/arrays en sitio: crea nuevas referencias para que Angular detecte los cambios.
+
