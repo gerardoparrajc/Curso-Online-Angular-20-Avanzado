@@ -332,4 +332,90 @@ Cada vez que el usuario llama a `incrementar()`, el efecto se ejecuta y muestra 
 - Documenta los efectos para facilitar la depuración.
 
 
+## 3.6 Estrategias para minimizar recomputaciones innecesarias
+
+En aplicaciones Angular modernas, especialmente con Signals y `computed()`, es fundamental evitar recomputaciones innecesarias para mantener el rendimiento óptimo. Aunque Angular 20 ya optimiza mucho el proceso, existen buenas prácticas y patrones que ayudan a reducir aún más el trabajo de la detección de cambios.
+
+### 3.6.1 Usa datos inmutables
+
+Siempre que modifiques arrays u objetos, crea una nueva referencia en vez de mutar el dato en sitio. Esto permite a Angular detectar el cambio de forma eficiente y evitar recomputaciones accidentales.
+
+**Ejemplo:**
+```ts
+// Incorrecto: muta el array en sitio
+items().push('nuevo');
+// Correcto: crea un nuevo array
+items.update(list => [...list, 'nuevo']);
+```
+
+### 3.6.2 Divide los `computed()` en piezas pequeñas y reutilizables
+
+En vez de crear un único `computed()` grande que dependa de muchos Signals, divide la lógica en varios `computed()` pequeños y claros. Así, solo se recalcula la parte que realmente cambió.
+
+**Ejemplo:**
+```ts
+const productos = signal<Product[]>([]);
+const filtro = signal<string>('');
+
+const productosFiltrados = computed(() =>
+	productos().filter(p => p.nombre.includes(filtro()))
+);
+const total = computed(() =>
+	productosFiltrados().reduce((acc, p) => acc + p.precio, 0)
+);
+```
+
+### 3.6.3 Evita dependencias innecesarias en `computed()` y `effect()`
+
+Solo lee los Signals que realmente necesitas dentro de cada `computed()` o `effect()`. Si lees un Signal por error, Angular lo considerará una dependencia y recalculará el valor cada vez que cambie.
+
+**Ejemplo:**
+```ts
+const a = signal(1);
+const b = signal(2);
+// Solo depende de 'a', no de 'b'
+const suma = computed(() => a());
+```
+
+### 3.6.4 Usa `untracked()` para lecturas puntuales
+
+Si necesitas leer el valor de un Signal dentro de un `computed()` o `effect()` pero no quieres que se convierta en dependencia reactiva, usa `untracked()`.
+
+**Ejemplo:**
+```ts
+import { untracked } from '@angular/core';
+
+const usuario = signal({ nombre: 'Ana', rol: 'admin' });
+const rolActual = computed(() => untracked(usuario).rol);
+```
+
+### 3.6.5 Evita ciclos de dependencias
+
+No hagas que un `computed()` dependa directa o indirectamente de sí mismo. Esto puede provocar bucles infinitos y recomputaciones innecesarias.
+
+### 3.6.6 Efectos perezosos y selectivos
+
+Recuerda que los `computed()` y los efectos (`effect()`) son perezosos: solo se ejecutan si alguien los lee o los usa. Aprovecha esto para crear cálculos que solo se activan cuando realmente se necesitan (por ejemplo, pestañas, paneles, etc.).
+
+### 3.6.7 Agrupa dependencias en objetos o Signals derivados
+
+Si tienes varios parámetros que determinan una petición o cálculo, agrúpalos en un solo `computed()` o Signal. Así, solo se recalcula cuando realmente cambia el conjunto de parámetros.
+
+**Ejemplo:**
+```ts
+const pagina = signal(1);
+const tamaño = signal(20);
+const filtros = signal({ categoria: 'A', stock: true });
+
+const parametros = computed(() => ({
+	pagina: pagina(),
+	tamaño: tamaño(),
+	...filtros()
+}));
+```
+
+### 3.6.8 Monitoriza y perfila tu aplicación
+
+Utiliza las herramientas de desarrollo de Angular y el navegador para identificar recomputaciones excesivas. Si detectas cálculos que se disparan demasiado, revisa las dependencias y la estructura de tus Signals y `computed()`.
+
 
