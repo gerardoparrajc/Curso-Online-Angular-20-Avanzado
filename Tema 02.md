@@ -861,5 +861,105 @@ Para utilizar los datos que devuelve este modo, utilizamos el signal `progress()
 
 
 
+### 2.8 Uso de operadores RxJS aplicados a Signals y viceversa
+
+En Angular 20, la interoperabilidad entre Signals y RxJS es muy potente y flexible. Aunque los Signals están pensados para manejar el estado actual de forma reactiva y sencilla, hay ocasiones en las que los operadores de RxJS nos permiten realizar transformaciones, filtrados o combinaciones avanzadas que serían más complejas de implementar solo con Signals.
+
+#### 2.8.1 ¿Por qué combinar Signals y operadores RxJS?
+
+Los operadores de RxJS (como `map`, `filter`, `debounceTime`, `switchMap`, etc.) son ideales para trabajar con flujos de datos asíncronos, temporales o que requieren lógica de transformación compleja. Los Signals, por su parte, son perfectos para representar el “valor actual” y derivar nuevos valores de forma declarativa y eficiente.
+
+La clave está en saber cuándo conviene usar cada herramienta y cómo conectarlas:
+
+- Si necesitas lógica temporal, operadores avanzados o integración con APIs que esperan Observables, usa RxJS.
+- Si solo necesitas derivar valores actuales y mantener el estado sincronizado, Signals son más directos.
+
+#### 2.8.2 De Signal a Observable: aplicar operadores RxJS
+
+Puedes convertir cualquier Signal en un Observable usando la función `toObservable` del paquete `@angular/core/rxjs-interop`. Una vez convertido, puedes aplicar cualquier operador de RxJS sobre ese Observable.
+
+**Ejemplo práctico:**
+
+Supongamos que tienes un Signal que representa el texto de búsqueda de un usuario, y quieres aplicar un debounce para evitar lanzar la búsqueda en cada pulsación:
+
+```ts
+import { signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { HttpClient } from '@angular/common/http';
+
+const search = signal('');
+const search$ = toObservable(search);
+
+const results$ = search$.pipe(
+	debounceTime(300),
+	distinctUntilChanged(),
+	switchMap(query => http.get(`/api/search?q=${query}`))
+);
+
+// Suscribimos para obtener los resultados
+results$.subscribe(data => {
+	// Actualiza el estado, muestra resultados, etc.
+});
+```
+
+En este ejemplo, el Signal `search` se convierte en un Observable, sobre el que aplicamos operadores RxJS para controlar el flujo de peticiones HTTP.
+
+#### 2.8.3 De Observable a Signal: usar operadores y derivar estado
+
+Si tienes un Observable (por ejemplo, de una API, un WebSocket, o una librería externa), puedes aplicar operadores RxJS y luego convertir el resultado en un Signal usando `toSignal`.
+
+**Ejemplo práctico:**
+
+```ts
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs/operators';
+
+const user$ = api.getUserStream(); // Observable que emite datos de usuario
+const userName$ = user$.pipe(map(user => user.name.toUpperCase()));
+
+const userNameSignal = toSignal(userName$, { initialValue: '' });
+
+// Ahora puedes usar userNameSignal() en tu plantilla o lógica reactiva
+```
+
+Esto te permite aprovechar la potencia de RxJS para transformar los datos y luego integrarlos en el sistema de Signals de Angular, manteniendo la reactividad y la eficiencia.
+
+#### 2.8.4 Ejemplo completo: búsqueda reactiva con debounce y estado
+
+Veamos un ejemplo donde combinamos ambos mundos para una búsqueda reactiva:
+
+```ts
+import { signal } from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { HttpClient } from '@angular/common/http';
+
+query = signal('');
+query$ = toObservable(query);
+
+results$ = query$.pipe(
+	debounceTime(400),
+	distinctUntilChanged(),
+	switchMap(q => http.get(`/api/search?q=${q}`))
+);
+
+resultsSignal = toSignal(results$, { initialValue: [] });
+
+// En la plantilla:
+// {{ resultsSignal() | json }}
+```
+
+Así, el usuario puede escribir en el campo de búsqueda, el Signal `query` se actualiza, el Observable aplica el debounce y la petición HTTP, y el Signal final `resultsSignal` contiene los resultados listos para mostrar en la interfaz.
+
+#### 2.8.5 Recomendaciones y buenas prácticas
+
+- Usa Signals para el estado local y derivaciones simples.
+- Usa RxJS y sus operadores para lógica temporal, flujos asíncronos y transformaciones complejas.
+- Conecta ambos mundos con `toObservable` y `toSignal` según lo que necesites en cada caso.
+- Evita mezclar demasiada lógica en un solo lugar: separa la transformación de datos (RxJS) del estado actual (Signals).
+- Recuerda que los Signals son más eficientes para leer el valor actual y evitar recálculos innecesarios.
+
+
 
 
