@@ -1,6 +1,6 @@
 # Temario del curso Angular 20 Avanzado
 
-## [1. Repaso de las novedades y fundamentos avanzados incorporados en Angular 20](Tema%201.md)
+## [1. Repaso de las novedades y fundamentos avanzados incorporados en Angular 20](Tema%2001.md)
 
 - Standalone Components y el fin progresivo de NgModules  
 - Nueva sintaxis de control flow (`@if`, `@for`, `@switch`)  
@@ -15,7 +15,7 @@
 
 ---
 
-## 2. Angular Signals en profundidad y su interoperabilidad con RxJS
+## [2. Angular Signals en profundidad y su interoperabilidad con RxJS](Tema%2002.md)
 
 - Creación y uso de Signals en Angular 20  
 - Signals computados (`computed`) y buenas prácticas de cálculo derivado  
@@ -54,20 +54,16 @@
 - Manipulación del DOM de forma reactiva y segura en Angular 20  
 - Integración de eventos con Signals en directivas personalizadas  
 - Compatibilidad con proyectos legacy: coexistencia con `*ngIf` y `*ngFor`  
-- Casos prácticos de directivas avanzadas en entornos enterprise  
-- Buenas prácticas en diseño, pruebas y mantenimiento de directivas modernas  
+- Casos prácticos de directivas avanzadas en entornos enterprise
 
 ---
 
 ## 5. Formularios avanzados en Angular 20
 
 - Formularios fuertemente tipados (Typed Forms) y sus ventajas  
-- Migración progresiva hacia formularios basados en Signals  
 - Creación de formularios híbridos (Typed + Signals)  
 - Validaciones síncronas y asíncronas aplicadas con Signals  
-- Estado unificado del formulario mediante reactividad moderna  
 - Personalización de mensajes de error reactivos y dinámicos  
-- Sustitución progresiva de `FormControl` y `FormGroup` clásicos  
 - Integración con RxJS: validaciones y sincronización con Observables  
 - Ejemplos prácticos de formularios enterprise con lógica avanzada  
 - Buenas prácticas y estrategias de migración para equipos grandes  
@@ -138,7 +134,6 @@
 
 - Introducción a las estrategias de testing modernas en Angular  
 - Unit testing con Jest: configuración y ventajas frente a Karma/Jasmine  
-- Uso de Angular Testing Library (ATL) para pruebas unitarias e integración  
 - Harnesses del Angular CDK para pruebas aisladas de componentes  
 - Mocking avanzado con `TestBed.inject()` y Signals  
 - Testing de formularios basados en Signals y validaciones dinámicas  
@@ -156,8 +151,6 @@
 - Creación de Schematics personalizados para automatizar generación de código  
 - Estrategias de monorepos y multirepos en entornos enterprise  
 - Introducción a Microfrontends y cuándo aplicarlos  
-- Configuración con Webpack Module Federation en Angular 20  
-- Comunicación entre microfrontends: RxJS, Signals y NGRX  
 - Estrategias de seguridad, despliegue y monitorización en arquitecturas distribuidas  
 
 ---
@@ -246,7 +239,7 @@
 - Uso progresivo de Zoneless Change Detection en lugar de Zone.js  
 - Migración hacia `NgOptimizedImage` desde librerías de terceros  
 - Ajustes en proyectos con SSR: introducción del Hydration incremental  
-- Sustitución de test runners obsoletos por Jest, Cypress y Angular Testing Library  
+- Sustitución de test runners obsoletos por Jest y Cypress  
 - Herramientas de apoyo para la migración: Angular CLI, Angular Update Guide y checklists  
 
 ---
@@ -259,7 +252,7 @@
 - Implementación de SSR con Hydration incremental para mejorar rendimiento y SEO  
 - Optimización de imágenes y recursos con `NgOptimizedImage`  
 - Configuración de un flujo de CI/CD completo con GitHub Actions  
-- Integración de testing moderno: Jest (unit), ATL (integration) y Cypress (e2e)  
+- Integración de testing moderno: Jest (unit) y Cypress (e2e)  
 - Análisis de rendimiento con Angular DevTools y Chrome Profiler  
 - Documentación asistida con IA (Copilot, Cursor)  
 - Estrategias de seguridad, accesibilidad y despliegue en entornos enterprise  
