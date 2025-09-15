@@ -798,3 +798,151 @@ Ambos fragmentos pueden convivir en la misma aplicación sin ningún problema.
 - **Prioriza componentes críticos**: migra primero aquellos que se renderizan con más frecuencia o que contienen listas grandes, para aprovechar las mejoras de rendimiento.  
 
 
+## 4.8 Casos prácticos de directivas avanzadas en entornos enterprise
+
+En aplicaciones **enterprise**, las directivas avanzadas no son un simple recurso técnico: se convierten en **bloques reutilizables de lógica transversal**, que permiten mantener la consistencia, mejorar la productividad del equipo y garantizar la escalabilidad del proyecto.  
+En este apartado veremos **casos prácticos reales** donde las directivas personalizadas, integradas con **Signals** y las nuevas APIs de Angular 20, aportan un valor diferencial.
+
+### 4.8.1. Directiva de control de permisos (seguridad en UI)
+
+En entornos corporativos, no todos los usuarios tienen los mismos permisos. Una directiva puede encargarse de mostrar u ocultar elementos según el rol del usuario.
+
+```ts
+@Directive({
+  selector: '[hasPermission]',
+  standalone: true
+})
+export class HasPermissionDirective {
+  private el = inject(ElementRef);
+  private authService = inject(AuthService);
+
+  permission = input.required<string>();
+
+  constructor() {
+    effect(() => {
+      const canShow = this.authService.hasPermission(this.permission());
+      this.el.nativeElement.style.display = canShow ? '' : 'none';
+    });
+  }
+}
+```
+
+Uso en plantilla:
+
+```html
+<button hasPermission="ADMIN">Eliminar usuario</button>
+```
+
+👉 Con esto, la lógica de permisos queda centralizada y reutilizable en toda la aplicación.
+
+### 4.8.2. Directiva de *loading state* para botones
+
+En aplicaciones enterprise, los botones suelen necesitar estados de carga para evitar acciones duplicadas.
+
+```ts
+@Directive({
+  selector: '[loadingButton]',
+  standalone: true
+})
+export class LoadingButtonDirective {
+  isLoading = input<boolean>(false);
+
+  constructor(private el: ElementRef<HTMLButtonElement>) {
+    effect(() => {
+      this.el.nativeElement.disabled = this.isLoading();
+      this.el.nativeElement.textContent = this.isLoading()
+        ? 'Procesando...'
+        : this.el.nativeElement.getAttribute('data-label') ?? 'Enviar';
+    });
+  }
+}
+```
+
+Uso:
+
+```html
+<button loadingButton [isLoading]="saving()" data-label="Guardar cambios"></button>
+```
+
+👉 Así evitamos duplicar lógica de deshabilitado y mensajes en cada componente.
+
+### 4.8.3. Directiva de *tracking* para analítica
+
+En entornos enterprise es habitual integrar analítica (Google Analytics, Azure Insights, etc.). Una directiva puede encargarse de enviar eventos automáticamente.
+
+```ts
+@Directive({
+  selector: '[trackEvent]',
+  standalone: true
+})
+export class TrackEventDirective {
+  eventName = input.required<string>();
+
+  constructor(private el: ElementRef, private analytics: AnalyticsService) {
+    this.el.nativeElement.addEventListener('click', () => {
+      this.analytics.track(this.eventName());
+    });
+  }
+}
+```
+
+Uso:
+
+```html
+<button trackEvent="DownloadReport">Descargar informe</button>
+```
+
+👉 Esto permite instrumentar la aplicación sin ensuciar los componentes con lógica de analítica.
+
+### 4.8.4. Directiva de accesibilidad (A11y)
+
+En proyectos grandes, garantizar la accesibilidad es crítico. Una directiva puede añadir atributos ARIA de forma automática.
+
+```ts
+@Directive({
+  selector: '[a11yLabel]',
+  standalone: true
+})
+export class A11yLabelDirective {
+  label = input.required<string>();
+
+  constructor(private el: ElementRef) {
+    effect(() => {
+      this.el.nativeElement.setAttribute('aria-label', this.label());
+    });
+  }
+}
+```
+
+Uso:
+
+```html
+<input type="text" a11yLabel="Nombre completo" />
+```
+
+👉 Con esto, aseguramos que todos los inputs cumplen con estándares de accesibilidad.
+
+### 4.8.5. Directiva de auditoría de formularios
+
+En entornos enterprise, los formularios suelen ser críticos. Una directiva puede registrar automáticamente cambios para auditoría.
+
+```ts
+@Directive({
+  selector: '[auditForm]',
+  standalone: true
+})
+export class AuditFormDirective {
+  constructor(private el: ElementRef<HTMLFormElement>, private audit: AuditService) {
+    this.el.nativeElement.addEventListener('change', (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      this.audit.logChange({
+        field: target.name,
+        value: target.value,
+        timestamp: new Date()
+      });
+    });
+  }
+}
+```
+
+👉 Esto permite cumplir con normativas de trazabilidad sin añadir lógica repetida en cada formulario.
