@@ -313,3 +313,138 @@ Ahora cada vez que el usuario escribe, el evento `value` se emite con un retardo
 - Prefiere `input()` y `output()` en lugar de `@Input()` y `@Output()` cuando trabajes con Signals.  
 - Mantén las directivas **pequeñas y específicas**: una directiva = un comportamiento.  
 - Evita lógica compleja en la directiva; delega en servicios si es necesario.  
+
+## 4.4 Host Directives: reutilización y encapsulación de lógica transversal
+
+En aplicaciones grandes, es común que distintos componentes necesiten **comportamientos repetidos**: validaciones, estilos dinámicos, accesibilidad, manejo de eventos globales, etc.
+
+Hasta ahora, la solución típica era crear **directivas de atributos** y aplicarlas manualmente en cada plantilla. Sin embargo, esto podía generar **duplicación de código** y dificultar la **encapsulación**.
+
+Con Angular 20, gracias a la **Directive Composition API**, disponemos de las **Host Directives**: una forma de **inyectar directivas directamente en un componente** para reutilizar lógica transversal sin necesidad de aplicarlas explícitamente en la plantilla.
+
+### 4.4.1. ¿Qué son las Host Directives?
+
+Las **Host Directives** permiten que un componente “herede” el comportamiento de una o varias directivas, aplicándolas automáticamente a su elemento host.  
+
+En otras palabras:  
+- Son directivas que se **componen dentro de un componente**.  
+- Se aplican de forma **estática en tiempo de compilación**.  
+- Sus **host bindings, listeners e inputs/outputs** se integran en el componente.  
+
+Esto significa que puedes encapsular lógica común en directivas y luego **reutilizarla en múltiples componentes** sin repetir código ni ensuciar las plantillas.
+
+### 4.4.2. Ejemplo básico
+
+Supongamos que tenemos una directiva que añade un tooltip:
+
+```ts
+import { Directive, HostListener, input } from '@angular/core';
+
+@Directive({
+  selector: '[tooltip]',
+  standalone: true
+})
+export class TooltipDirective {
+  text = input<string>('');
+
+  @HostListener('mouseenter', ['$event.target'])
+  showTooltip(el: HTMLElement) {
+    // Lógica para mostrar tooltip
+    console.log('Mostrar tooltip:', this.text());
+  }
+
+  @HostListener('mouseleave')
+  hideTooltip() {
+    console.log('Ocultar tooltip');
+  }
+}
+```
+
+Ahora queremos que un componente `UserCard` siempre tenga este comportamiento, sin necesidad de escribir `[tooltip]` en la plantilla.
+
+```ts
+import { Component } from '@angular/core';
+import { TooltipDirective } from './tooltip.directive';
+
+@Component({
+  selector: 'app-user-card',
+  standalone: true,
+  template: `<div class="card">Contenido de la tarjeta</div>`,
+  hostDirectives: [
+    {
+      directive: TooltipDirective,
+      inputs: ['text: tooltipText'] // Exponemos el input con un alias
+    }
+  ]
+})
+export class UserCardComponent {}
+```
+
+Uso en plantilla:
+
+```html
+<app-user-card tooltipText="Información del usuario"></app-user-card>
+```
+
+👉 El componente `UserCard` **hereda automáticamente** la lógica de `TooltipDirective`.  
+No necesitamos aplicarla manualmente en la plantilla.
+
+### 4.4.3. Ventajas de las Host Directives
+
+- **Reutilización real**: encapsulas lógica transversal (tooltips, accesibilidad, validaciones, estilos dinámicos) en directivas y las aplicas en múltiples componentes.  
+- **Plantillas más limpias**: no necesitas añadir atributos extra en cada uso.  
+- **Encapsulación**: el componente expone solo los inputs/outputs que decidas.  
+- **Composición flexible**: puedes aplicar varias directivas a un mismo componente.  
+- **Consistencia**: todos los componentes que usan la misma host directive comparten el mismo comportamiento.
+
+### 4.4.4. Ejemplo avanzado: accesibilidad
+
+Imagina que quieres que todos tus botones personalizados tengan soporte de accesibilidad (`aria-label`, `role`, etc.).  
+
+```ts
+@Directive({
+  selector: '[a11y]',
+  standalone: true
+})
+export class AccessibilityDirective {
+  label = input<string>('');
+  role = input<string>('button');
+
+  constructor(private el: ElementRef) {
+    effect(() => {
+      this.el.nativeElement.setAttribute('role', this.role());
+      this.el.nativeElement.setAttribute('aria-label', this.label());
+    });
+  }
+}
+```
+
+Ahora, cualquier componente de botón puede heredar esta directiva:
+
+```ts
+@Component({
+  selector: 'app-primary-button',
+  standalone: true,
+  template: `<button class="btn-primary"><ng-content /></button>`,
+  hostDirectives: [
+    {
+      directive: AccessibilityDirective,
+      inputs: ['label: ariaLabel', 'role: ariaRole']
+    }
+  ]
+})
+export class PrimaryButtonComponent {}
+```
+
+Uso:
+
+```html
+<app-primary-button ariaLabel="Guardar cambios"></app-primary-button>
+```
+
+## 5. Buenas prácticas
+
+- **Usa Host Directives para lógica transversal**: accesibilidad, estilos comunes, tooltips, validaciones.  
+- **No abuses**: si la directiva solo se usa en un lugar, probablemente no necesite ser host directive.  
+- **Expón solo lo necesario**: controla qué inputs/outputs se heredan para no sobrecargar la API del componente.  
+- **Combínalas con Signals**: los `input()` y `effect()` hacen que la lógica sea aún más reactiva y declarativa.  
