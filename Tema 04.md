@@ -197,3 +197,119 @@ Esto simplifica mucho el código y lo hace más expresivo.
 | Rendimiento en listas     | Algoritmo clásico             | Nuevo diffing, más rápido   |
 | Tooling y tipos           | Limitado                      | Mejor soporte en compilador |
 | Futuro                    | En proceso de deprecación     | ✅ Nuevo estándar recomendado |
+
+## 4.3 Directivas de atributos reactivas integradas con Signals
+
+Hasta ahora hemos visto cómo los **bloques de control de flujo** (`@if`, `@for`, `@switch`) se integran de forma natural con Signals. Pero Angular 20 no se queda ahí: también podemos aprovechar la reactividad de Signals en las **directivas de atributos**, es decir, aquellas que modifican el comportamiento o el estilo de un elemento existente sin alterar su estructura.
+
+Esto abre la puerta a un patrón muy poderoso: **directivas reactivas**, que responden automáticamente a cambios en Signals sin necesidad de suscripciones manuales ni `async pipe`.
+
+### 4.3.1. ¿Qué son las directivas de atributos reactivas?
+
+Una **directiva de atributo** es aquella que se aplica sobre un elemento HTML para modificar su apariencia o comportamiento. Ejemplos clásicos son `ngClass`, `ngStyle` o `ngModel`.
+
+Con Signals, podemos crear directivas que:
+
+- Escuchen cambios en un Signal.
+- Actualicen automáticamente el DOM.
+- Mantengan el código más declarativo y limpio.
+
+### 4.3.2. Ejemplo básico: directiva `highlightOn`
+
+Imaginemos que queremos resaltar un elemento cuando un Signal booleano esté activo.
+
+```ts
+import { Directive, ElementRef, effect, input } from '@angular/core';
+
+@Directive({
+  selector: '[highlightOn]',
+  standalone: true
+})
+export class HighlightOnDirective {
+  // Recibimos un Signal como input
+  highlightOn = input.required<boolean>();
+
+  constructor(private el: ElementRef) {
+    // Creamos un efecto reactivo
+    effect(() => {
+      if (this.highlightOn()) {
+        this.el.nativeElement.style.backgroundColor = 'yellow';
+      } else {
+        this.el.nativeElement.style.backgroundColor = 'transparent';
+      }
+    });
+  }
+}
+```
+
+Uso en plantilla:
+
+```html
+<div [highlightOn]="isHighlighted">
+  Este texto se resalta automáticamente
+</div>
+```
+
+Donde `isHighlighted` es un **Signal** en el componente:
+
+```ts
+isHighlighted = signal(false);
+```
+
+### 4.3.3. Ventajas frente a directivas tradicionales
+
+- **Sin suscripciones manuales**: no necesitamos `subscribe()` ni `ngOnDestroy`.  
+- **Reactividad declarativa**: el `effect()` se encarga de escuchar el Signal y actualizar el DOM.  
+- **Menos boilerplate**: el código es más corto y expresivo.  
+- **Mejor integración con el compilador**: Angular sabe qué Signals afectan a la directiva y optimiza el *Change Detection*.
+
+### 4.3.4. Ejemplo avanzado: directiva `debounceInput`
+
+Podemos crear una directiva que convierta el valor de un `<input>` en un Signal reactivo con *debounce* integrado.
+
+```ts
+import { Directive, ElementRef, output, effect, signal } from '@angular/core';
+
+@Directive({
+  selector: 'input[debounceInput]',
+  standalone: true
+})
+export class DebounceInputDirective {
+  private el = inject(ElementRef<HTMLInputElement>);
+  private valueSignal = signal('');
+
+  // Exponemos un output reactivo
+  value = output<string>();
+
+  constructor() {
+    // Escuchamos cambios en el input
+    this.el.nativeElement.addEventListener('input', (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      this.valueSignal.set(target.value);
+    });
+
+    // Creamos un efecto con debounce manual
+    let timeout: any;
+    effect(() => {
+      const current = this.valueSignal();
+      clearTimeout(timeout);
+      timeout = setTimeout(() => this.value.emit(current), 300);
+    });
+  }
+}
+```
+
+Uso en plantilla:
+
+```html
+<input debounceInput (value)="onSearch($event)" />
+```
+
+Ahora cada vez que el usuario escribe, el evento `value` se emite con un retardo de 300ms, sin necesidad de RxJS ni `FormControl`.
+
+### 4.3.5. Buenas prácticas
+
+- Usa `effect()` dentro de la directiva para reaccionar a Signals.  
+- Prefiere `input()` y `output()` en lugar de `@Input()` y `@Output()` cuando trabajes con Signals.  
+- Mantén las directivas **pequeñas y específicas**: una directiva = un comportamiento.  
+- Evita lógica compleja en la directiva; delega en servicios si es necesario.  
