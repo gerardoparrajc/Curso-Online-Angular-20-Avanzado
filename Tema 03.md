@@ -486,3 +486,251 @@ mostrarPanel() {
 - Documenta bien los componentes donde la propagación está deshabilitada para evitar confusiones.
 - Si usas Signals, aprovecha su granularidad para limitar aún más las actualizaciones.
 
+
+
+## 3.8 Identificación de operaciones costosas y optimización del renderizado
+
+En aplicaciones Angular avanzadas, el rendimiento puede verse afectado por operaciones costosas en el ciclo de Change Detection y el renderizado de la interfaz. Identificar estos puntos críticos y aplicar técnicas de optimización es clave para mantener la experiencia de usuario fluida y eficiente.
+
+### 3.8.1 ¿Qué son operaciones costosas?
+
+Son cálculos, renderizados o actualizaciones que consumen mucho tiempo o recursos, como:
+- Filtrar, ordenar o mapear grandes listas en cada ciclo de cambio.
+- Renderizar componentes complejos o con muchos elementos.
+- Ejecutar lógica pesada en plantillas o métodos de componentes.
+- Realizar peticiones HTTP o cálculos asíncronos en bucles de renderizado.
+
+### 3.8.2 Cómo identificar operaciones costosas
+
+- Usa las herramientas de desarrollo del navegador (Performance, Profiler) para analizar el tiempo de renderizado y los ciclos de Change Detection.
+- Utiliza el modo de desarrollo de Angular y activa el flag de profiling para ver qué componentes se recalculan más.
+- Añade logs temporales en métodos, `computed()` y `effect()` para detectar llamadas excesivas.
+- Observa el comportamiento de la UI: si hay lentitud al interactuar, al cambiar datos o al navegar entre vistas, puede haber operaciones costosas.
+
+### 3.8.3 Técnicas de optimización
+
+#### 1. Memoización de cálculos
+
+Usa `computed()` para cachear resultados de cálculos derivados y evitar repetir operaciones pesadas.
+
+**Ejemplo:**
+```ts
+const productos = signal<Product[]>([]);
+const filtro = signal<string>('');
+const productosFiltrados = computed(() =>
+	productos().filter(p => p.nombre.includes(filtro()))
+);
+```
+
+#### 2. Virtualización de listas
+
+Muestra solo los elementos visibles en pantalla usando librerías de virtual scroll o componentes personalizados. Así, Angular solo renderiza lo necesario.
+
+#### 3. Componentes con Change Detection selectivo
+
+Usa `OnPush` y Signals para limitar la actualización a los componentes que realmente cambian.
+
+#### 4. Evita lógica pesada en plantillas
+
+Realiza cálculos en métodos, `computed()` o servicios, no directamente en la plantilla. Así, el renderizado es más rápido y predecible.
+
+#### 5. Divide componentes grandes en subcomponentes
+
+Fragmenta la UI en piezas pequeñas y reutilizables, cada una con su propio ciclo de Change Detection. Esto reduce el impacto de operaciones costosas en el árbol global.
+
+#### 6. Usa trackBy en listas
+
+En estructuras de control de flujo, como `@for()`, utiliza `track` para evitar recrear elementos innecesariamente.
+
+**Ejemplo:**
+```html
+@for(item of items(); track item.id) {
+	<li>{{ item.nombre }}</li>
+}
+```
+
+#### 7. Debounce y throttle en eventos
+
+Si tienes eventos que disparan cálculos o peticiones, usa técnicas de debounce o throttle para limitar la frecuencia de ejecución.
+
+#### 8. Optimiza peticiones HTTP y cálculos asíncronos
+
+Agrupa, cachea o limita las peticiones y cálculos que se disparan en respuesta a cambios de estado.
+
+### 3.8.4 Recomendaciones finales
+
+- Perfila tu aplicación regularmente y revisa los puntos críticos.
+- Aplica optimizaciones solo donde realmente impactan el rendimiento.
+- Documenta las zonas optimizadas para facilitar el mantenimiento.
+- Aprovecha Signals, `computed()` y `effect()` para gestionar la reactividad de forma eficiente.
+
+
+
+## 3.9 Integración con Angular DevTools para profiling y debugging de Change Detection
+
+Cuando trabajamos con **Angular Signals** y optimizaciones de rendimiento, entender **cuándo** y **por qué** se ejecuta el *Change Detection* es clave.  
+Aquí es donde **Angular DevTools** se convierte en nuestro aliado: una extensión oficial para Chrome y Firefox que nos permite **inspeccionar, medir y depurar** el ciclo de vida de nuestra aplicación.
+
+### 3.9.1. Instalación y requisitos
+
+1. **Instala la extensión** desde la [Chrome Web Store](https://chrome.google.com/webstore/detail/angular-devtools) o [Firefox Add-ons](https://addons.mozilla.org/es/firefox/addon/angular-devtools/).
+2. Abre las herramientas de desarrollo del navegador y busca la pestaña **Angular**.
+
+
+### 3.9.2. Explorando la aplicación con *Component Explorer*
+
+El **Component Explorer** muestra la jerarquía de componentes como un árbol interactivo:
+
+- **Selecciona un componente** para ver:
+  - Sus *Inputs* y *Outputs*.
+  - Sus propiedades internas.
+  - El estado actual de sus Signals.
+- Esto es muy útil para:
+  - Ver cómo cambian los datos en tiempo real.
+  - Confirmar si un cambio en un Signal realmente provoca un *render*.
+
+💡 *Tip*: Si un componente se actualiza sin que esperes que lo haga, revisa aquí si algún *Input* o Signal ha cambiado.
+
+### 3.9.3. Analizando el *Change Detection* con el **Profiler**
+
+El **Profiler** es la joya de Angular DevTools para entender el rendimiento:
+
+1. Ve a la pestaña **Profiler**.
+2. Pulsa **Start recording**.
+3. Interactúa con tu aplicación (haz clics, cambia Signals, navega).
+4. Pulsa **Stop recording**.
+
+Verás:
+
+- **Barras de tiempo**: cada barra representa un ciclo de *Change Detection*.  
+  - Barras más altas = más tiempo de procesamiento.
+  - Colores amarillos o rojos = posibles cuellos de botella.
+- **Flame Graph**: muestra qué componentes consumen más tiempo.
+  - El ancho indica duración.
+  - La profundidad indica jerarquía de llamadas.
+- **Detalles por componente**: al seleccionar una barra, verás:
+  - Tiempo total de *Change Detection*.
+  - Qué lo disparó (evento, Signal, HTTP, etc.).
+  - Componentes y directivas implicadas.
+
+### 3.9.4. Detectando problemas comunes
+
+Con el Profiler puedes descubrir:
+
+- **Actualizaciones innecesarias**: componentes que se vuelven a renderizar sin que sus datos cambien.
+- **Bucles de renderizado**: Signals o eventos que disparan *Change Detection* repetidamente.
+- **Componentes pesados**: aquellos que tardan demasiado en procesar su vista.
+
+Ejemplo:  
+Si ves que un `UserListComponent` se actualiza cada vez que mueves el ratón sobre otro elemento, probablemente haya un evento global o un Signal mal gestionado.
+
+### 3.9.5. Estrategias de optimización
+
+- Usa **`ChangeDetectionStrategy.OnPush`** en componentes que no necesitan actualizarse con cada cambio global.
+- Divide componentes grandes en otros más pequeños y específicos.
+- Evita mutar objetos o arrays directamente; crea nuevas referencias para Signals.
+- Controla la frecuencia de actualizaciones con *debounce* o *throttle* en eventos intensivos.
+
+### 3.9.6 Caso de estudio: Signal mal gestionado y *Change Detection* excesivo
+
+**El escenario inicial**
+
+Imagina que tenemos un componente que muestra una lista de usuarios y un contador de clics. El contador está implementado como un **Signal global** que se actualiza en cada clic… pero sin aislar su efecto.
+
+```ts
+import { Component, signal } from '@angular/core';
+
+const clickCount = signal(0);
+
+@Component({
+  selector: 'app-user-list',
+  template: `
+    <button (click)="increment()">Clics: {{ clickCount() }}</button>
+    <ul>
+		@for(user of users; track $index) {
+			<li>
+				{{ user.name }}
+			</li>
+		}
+    </ul>
+  `
+})
+export class UserListComponent {
+  users = Array.from({ length: 5000 }, (_, i) => ({ name: `Usuario ${i + 1}` }));
+  clickCount = clickCount;
+
+  increment() {
+    this.clickCount.update(c => c + 1);
+  }
+}
+```
+
+**Problema**:  
+Cada vez que hacemos clic, **toda la lista de 5000 usuarios se vuelve a renderizar**, aunque no haya cambiado.
+
+---
+
+**Detectando el problema con Angular DevTools**
+
+1. Abrimos **Angular DevTools** y vamos a la pestaña **Profiler**.
+2. Pulsamos **Start recording**.
+3. Hacemos un par de clics en el botón.
+4. Pulsamos **Stop recording**.
+
+**Qué vemos**:
+- El *Flame Graph* muestra que `UserListComponent` se vuelve a renderizar completo en cada clic.
+- El tiempo de *Change Detection* es alto y crece con el tamaño de la lista.
+- El disparador del cambio es el Signal `clickCount`, que está en el mismo componente que la lista.
+
+---
+
+**Optimizando el código**
+
+La solución es **aislar el Signal** para que solo afecte a la parte necesaria de la vista.
+
+```ts
+@Component({
+  selector: 'app-click-counter',
+  template: `<button (click)="increment()">Clics: {{ clickCount() }}</button>`,
+  standalone: true
+})
+export class ClickCounterComponent {
+  clickCount = clickCount;
+  increment() {
+    this.clickCount.update(c => c + 1);
+  }
+}
+
+@Component({
+  selector: 'app-user-list',
+  template: `
+    <app-click-counter />
+	<ul>
+		@for(user of users; track $index) {
+			<li>
+				{{ user.name }}
+			</li>
+		}
+	</ul>
+  `
+})
+export class UserListComponent {
+  users = Array.from({ length: 5000 }, (_, i) => ({ name: `Usuario ${i + 1}` }));
+}
+```
+
+**Qué cambia**:
+- El contador está en un componente separado.
+- Ahora, al hacer clic, solo se vuelve a renderizar `ClickCounterComponent`.
+- La lista permanece intacta.
+
+---
+
+**Verificando la mejora con DevTools**
+
+Repetimos el *profiling*:
+
+- El *Flame Graph* muestra que solo el componente del contador se actualiza.
+- El tiempo de *Change Detection* se reduce drásticamente.
+- La experiencia del usuario es más fluida.
+
