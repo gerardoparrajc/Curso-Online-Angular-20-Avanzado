@@ -739,3 +739,62 @@ Uso:
 
 Cada clic actualiza el Signal `count`, y el `effect()` se encarga de reflejarlo en el DOM.  
 El resultado es un comportamiento completamente reactivo, sin necesidad de lógica extra en el componente.
+
+## 4.7 Compatibilidad con proyectos legacy: coexistencia con `*ngIf` y `*ngFor`
+
+La introducción del nuevo sistema de control de flujo en Angular 20 —con `@if`, `@for` y `@switch`— no significa que las directivas estructurales clásicas (`*ngIf`, `*ngFor`, `*ngSwitch`) hayan dejado de funcionar de inmediato. Angular mantiene un fuerte compromiso con la **compatibilidad hacia atrás**, especialmente en entornos **enterprise** donde existen aplicaciones grandes, con años de desarrollo y miles de plantillas que utilizan la sintaxis tradicional.  
+
+Por ello, Angular 20 permite la **coexistencia de ambos enfoques**: puedes seguir utilizando `*ngIf` y `*ngFor` en tus plantillas legacy, mientras introduces progresivamente `@if` y `@for` en nuevas secciones del proyecto.  
+
+### 4.7.1. Estado actual de la compatibilidad
+
+- **Soporte dual**: Angular 20 soporta tanto la sintaxis clásica como la nueva.  
+- **Deprecación progresiva**: aunque no hay una eliminación inmediata, el equipo de Angular ha dejado claro que el futuro está en los bloques `@if` y `@for`.  
+- **Migración gradual**: se recomienda migrar poco a poco, aprovechando nuevas funcionalidades en módulos o componentes nuevos, sin necesidad de refactorizar todo el proyecto de golpe.  
+
+### 4.7.2. Estrategias de coexistencia
+
+En proyectos grandes, lo más habitual es encontrarse con **miles de ocurrencias** de `*ngIf` y `*ngFor`. Migrarlas todas de golpe puede ser arriesgado y costoso. Por eso, la estrategia recomendada es la **coexistencia controlada**:
+
+- **Nuevos componentes → nueva sintaxis**  
+  Todo lo que se desarrolle a partir de Angular 20 debería usar `@if` y `@for`.  
+- **Componentes legacy → sintaxis clásica**  
+  Mantén `*ngIf` y `*ngFor` en componentes antiguos hasta que haya tiempo y recursos para migrarlos.  
+- **Migración progresiva**  
+  Usa herramientas de migración automática (`ng generate @angular/core:control-flow-migration`) o reglas de ESLint que te avisen cuando uses directivas legacy.  
+
+### 4.7.3. Ejemplo de coexistencia en un mismo proyecto
+
+```html
+<!-- Componente legacy -->
+<div *ngIf="isLoggedIn; else loginBlock">
+  Bienvenido, usuario
+</div>
+<ng-template #loginBlock>
+  <p>Por favor, inicia sesión</p>
+</ng-template>
+
+<!-- Componente nuevo -->
+@if (isLoggedIn) {
+  <div>Bienvenido, usuario</div>
+} @else {
+  <p>Por favor, inicia sesión</p>
+}
+```
+
+Ambos fragmentos pueden convivir en la misma aplicación sin ningún problema.  
+
+### 4.7.4. Herramientas de ayuda a la migración
+
+- **Esquemas de migración oficiales**: Angular incluye comandos de migración que transforman automáticamente `*ngIf` y `*ngFor` en `@if` y `@for`.  
+- **Reglas de ESLint**: puedes configurar reglas que marquen como error el uso de directivas legacy, forzando a tu equipo a usar la nueva sintaxis en código nuevo.  
+- **Refactor manual progresivo**: en componentes críticos, conviene revisar manualmente para aprovechar mejoras como `@empty` en `@for`.  
+
+### 4.7.5. Buenas prácticas en proyectos enterprise
+
+- **Define una política de migración**: decide si migrarás todo de golpe o de forma progresiva.  
+- **Capacita al equipo**: asegúrate de que todos los desarrolladores entienden la nueva sintaxis.  
+- **Usa linters y revisiones de código**: para evitar que se introduzcan nuevas directivas legacy en código nuevo.  
+- **Prioriza componentes críticos**: migra primero aquellos que se renderizan con más frecuencia o que contienen listas grandes, para aprovechar las mejoras de rendimiento.  
+
+
