@@ -442,9 +442,127 @@ Uso:
 <app-primary-button ariaLabel="Guardar cambios"></app-primary-button>
 ```
 
-## 5. Buenas prácticas
+### 4.4.5. Buenas prácticas
 
 - **Usa Host Directives para lógica transversal**: accesibilidad, estilos comunes, tooltips, validaciones.  
 - **No abuses**: si la directiva solo se usa en un lugar, probablemente no necesite ser host directive.  
 - **Expón solo lo necesario**: controla qué inputs/outputs se heredan para no sobrecargar la API del componente.  
 - **Combínalas con Signals**: los `input()` y `effect()` hacen que la lógica sea aún más reactiva y declarativa.  
+
+## 4.5 Manipulación del DOM de forma reactiva y segura en Angular 20
+
+En Angular 20, la manipulación del DOM se ha vuelto más **declarativa, reactiva y segura** gracias a la integración con **Signals** y a nuevas recomendaciones que evitan inconsistencias en entornos como **SSR (Server-Side Rendering)**, **hidratación** y **renderizado híbrido**.  
+
+Modificar el DOM directamente con `ElementRef` o APIs nativas de JavaScript puede romper la coherencia entre lo que Angular cree que hay en la vista y lo que realmente existe en el navegador. Por eso, la filosofía actual es:  
+
+- **Evitar manipulación manual siempre que sea posible.**  
+- **Usar bindings, host bindings y directivas reactivas** para expresar cambios en el DOM.  
+- **Aprovechar Signals y efectos (`effect()`)** para que las actualizaciones sean automáticas y seguras.  
+
+### 4.5.1. El problema de la manipulación manual
+
+Ejemplo clásico (no recomendado):
+
+```ts
+constructor(private el: ElementRef) {}
+
+ngOnInit() {
+  this.el.nativeElement.style.backgroundColor = 'red';
+}
+```
+
+Este enfoque:  
+- Funciona en el navegador, pero puede fallar en SSR o durante la hidratación.  
+- No es reactivo: si cambia el estado, el DOM no se actualiza automáticamente.  
+- Puede introducir vulnerabilidades de seguridad (XSS) si se manipula contenido HTML sin sanitización.  
+
+### 4.5.2. La forma recomendada: bindings declarativos
+
+Angular ofrece **host bindings** y **data bindings** que permiten manipular el DOM de forma declarativa:
+
+```ts
+@Component({
+  selector: 'app-alert',
+  template: `<p>{{ message() }}</p>`,
+  host: {
+    '[class.visible]': 'isVisible()',
+    '[style.backgroundColor]': '"yellow"'
+  }
+})
+export class AlertComponent {
+  message = signal('Atención: cambios guardados');
+  isVisible = signal(true);
+}
+```
+
+Aquí:  
+- La clase `visible` se añade o elimina automáticamente según el Signal `isVisible`.  
+- El color de fondo se aplica de forma declarativa.  
+- No hay manipulación manual: Angular mantiene la coherencia del DOM.  
+
+### 4.5.3. Directivas reactivas para encapsular lógica
+
+Si necesitas lógica más compleja, encapsúlala en una directiva con Signals y `effect()`:
+
+```ts
+@Directive({
+  selector: '[autoFocus]',
+  standalone: true
+})
+export class AutoFocusDirective {
+  enabled = input<boolean>(true);
+
+  constructor(private el: ElementRef) {
+    effect(() => {
+      if (this.enabled()) {
+        queueMicrotask(() => this.el.nativeElement.focus());
+      }
+    });
+  }
+}
+```
+
+Uso:
+
+```html
+<input autoFocus [enabled]="shouldFocus()" />
+```
+
+👉 Con esto, el input se enfoca automáticamente cuando el Signal `shouldFocus` es `true`, sin necesidad de `ViewChild` ni `ngAfterViewInit`.
+
+### 4.5.4. Manipulación segura de contenido dinámico
+
+Cuando necesites insertar HTML dinámico, **nunca lo hagas directamente** con `innerHTML`, ya que puede abrir la puerta a ataques XSS.  
+Angular proporciona el servicio `DomSanitizer`:
+
+```ts
+constructor(private sanitizer: DomSanitizer) {}
+
+htmlContent = signal('<b>Texto seguro</b>');
+
+safeHtml = computed(() =>
+  this.sanitizer.bypassSecurityTrustHtml(this.htmlContent())
+);
+```
+
+En la plantilla:
+
+```html
+<div [innerHTML]="safeHtml()"></div>
+```
+
+### 4.5.5. Integración con SSR e hidratación
+
+En aplicaciones modernas con **SSR** e **hidratación**, es fundamental que el DOM generado en el servidor coincida con el del cliente.  
+Buenas prácticas:  
+- Evita añadir o eliminar nodos manualmente antes de la hidratación.  
+- Usa `@if`, `@for` y `@switch` para controlar el flujo de la vista.  
+- Si necesitas manipulación condicional, hazlo **después de la hidratación** (ej. en `ngAfterViewInit`).  
+
+### 4.5.6. Buenas prácticas de manipulación reactiva
+
+- **Prefiere Signals + bindings** en lugar de `ElementRef`.  
+- **Encapsula lógica en directivas** para reutilizar comportamientos.  
+- **Usa `Renderer2` solo cuando sea imprescindible** (ej. compatibilidad con plataformas no DOM).  
+- **Sanitiza siempre contenido dinámico** con `DomSanitizer`.  
+- **Minimiza el acceso directo al DOM** para no romper SSR ni hidratación.  
