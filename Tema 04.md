@@ -566,3 +566,176 @@ Buenas prácticas:
 - **Usa `Renderer2` solo cuando sea imprescindible** (ej. compatibilidad con plataformas no DOM).  
 - **Sanitiza siempre contenido dinámico** con `DomSanitizer`.  
 - **Minimiza el acceso directo al DOM** para no romper SSR ni hidratación.  
+
+## 4.6 Integración de eventos con Signals en directivas personalizadas
+
+Uno de los grandes avances de Angular 20 es la posibilidad de trabajar con **Signals** como mecanismo central de reactividad. Hasta ahora, cuando queríamos escuchar eventos del DOM en una directiva personalizada, solíamos recurrir a decoradores como `@HostListener` o a la suscripción manual de eventos con `addEventListener`. Aunque estos enfoques siguen siendo válidos, la llegada de Signals nos permite **integrar los eventos de usuario directamente en el flujo reactivo de la aplicación**, lo que simplifica el código, reduce la necesidad de suscripciones manuales y mejora la legibilidad.
+
+En este apartado veremos cómo crear directivas que no solo reaccionen a eventos del DOM, sino que además **expongan esos eventos como Signals**, de modo que otros componentes o directivas puedan reaccionar automáticamente a ellos.
+
+### 4.6.1. El enfoque tradicional: `@HostListener`
+
+Antes de Angular 20, una directiva que reaccionaba a un evento podía escribirse así:
+
+```ts
+@Directive({
+  selector: '[hoverHighlight]'
+})
+export class HoverHighlightDirective {
+  constructor(private el: ElementRef) {}
+
+  @HostListener('mouseenter')
+  onMouseEnter() {
+    this.el.nativeElement.style.backgroundColor = 'yellow';
+  }
+
+  @HostListener('mouseleave')
+  onMouseLeave() {
+    this.el.nativeElement.style.backgroundColor = 'transparent';
+  }
+}
+```
+
+Este patrón funciona, pero tiene limitaciones:  
+- La lógica está acoplada directamente al DOM.  
+- No es fácil reutilizar el estado del evento en otros lugares.  
+- No se integra con Signals, por lo que no podemos reaccionar de forma declarativa en otras partes de la aplicación.  
+
+### 4.6.2. El nuevo enfoque: eventos como Signals
+
+Con Angular 20 podemos transformar los eventos en **Signals**. Esto significa que cada vez que ocurre un evento, el Signal se actualiza, y cualquier parte de la aplicación que dependa de él se reactualiza automáticamente.
+
+Ejemplo:
+
+```ts
+import { Directive, ElementRef, signal } from '@angular/core';
+
+@Directive({
+  selector: '[hoverSignal]'
+})
+export class HoverSignalDirective {
+  // Creamos un Signal que representará el estado del hover
+  isHovered = signal(false);
+
+  constructor(private el: ElementRef) {
+    this.el.nativeElement.addEventListener('mouseenter', () => {
+      this.isHovered.set(true);
+    });
+    this.el.nativeElement.addEventListener('mouseleave', () => {
+      this.isHovered.set(false);
+    });
+  }
+}
+```
+
+Ahora, `isHovered` es un Signal que refleja en tiempo real si el ratón está sobre el elemento o no.  
+Esto nos permite **usar ese estado en cualquier otro lugar de la aplicación** sin necesidad de callbacks ni suscripciones manuales.
+
+### 4.6.3. Exponiendo eventos como `output()` reactivos
+
+Angular 20 introduce también la utilidad `output()`, que nos permite exponer eventos de una directiva como **Outputs reactivos**. Esto es especialmente útil cuando queremos que un componente padre reaccione a los eventos de la directiva.
+
+```ts
+import { Directive, ElementRef, output } from '@angular/core';
+
+@Directive({
+  selector: '[clickSignal]',
+  standalone: true
+})
+export class ClickSignalDirective {
+  // Exponemos un output reactivo
+  clicked = output<MouseEvent>();
+
+  constructor(private el: ElementRef) {
+    this.el.nativeElement.addEventListener('click', (event: MouseEvent) => {
+      this.clicked.emit(event);
+    });
+  }
+}
+```
+
+Uso en plantilla:
+
+```html
+<button clickSignal (clicked)="onButtonClicked($event)">
+  Haz clic aquí
+</button>
+```
+
+De esta forma, la directiva convierte el evento nativo en un **output declarativo**, que puede ser consumido como cualquier otro evento Angular, pero con la ventaja de estar integrado en el ecosistema de Signals.
+
+### 4.6.4. Combinando eventos y Signals con `effect()`
+
+La verdadera potencia aparece cuando combinamos **eventos** con **efectos reactivos**.  
+Imagina una directiva que cambia dinámicamente el estilo de un elemento en función de si está siendo clicado o no:
+
+```ts
+import { Directive, ElementRef, signal, effect } from '@angular/core';
+
+@Directive({
+  selector: '[toggleHighlight]',
+  standalone: true
+})
+export class ToggleHighlightDirective {
+  private active = signal(false);
+
+  constructor(private el: ElementRef) {
+    this.el.nativeElement.addEventListener('click', () => {
+      this.active.update(v => !v);
+    });
+
+    effect(() => {
+      this.el.nativeElement.style.backgroundColor = this.active()
+        ? 'lightblue'
+        : 'transparent';
+    });
+  }
+}
+```
+
+Aquí ocurre algo muy interesante:  
+- El evento `click` actualiza el Signal `active`.  
+- El `effect()` escucha ese Signal y actualiza el DOM automáticamente.  
+- No necesitamos `ngOnDestroy`, ni `Renderer2`, ni `ChangeDetectorRef`. Todo fluye de manera declarativa.  
+
+### 4.6.5. Ventajas de este enfoque
+
+- **Reactividad total**: los eventos se convierten en parte del sistema de Signals, lo que permite combinarlos con otros estados reactivos.  
+- **Menos boilerplate**: no necesitamos suscripciones manuales ni `ngOnDestroy`.  
+- **Mayor expresividad**: el código refleja directamente la intención: “cuando ocurra este evento, actualiza este Signal”.  
+- **Reutilización**: el estado derivado de un evento puede ser consumido por múltiples componentes o directivas.  
+- **Compatibilidad**: podemos seguir usando `@HostListener` o `Renderer2` cuando sea necesario, pero ahora tenemos una alternativa más declarativa.  
+
+### 4.6.6. Ejemplo práctico: directiva de contador de clics
+
+Para cerrar, un ejemplo completo que combina todo lo visto:
+
+```ts
+@Directive({
+  selector: '[clickCounter]',
+  standalone: true
+})
+export class ClickCounterDirective {
+  count = signal(0);
+
+  constructor(private el: ElementRef) {
+    this.el.nativeElement.addEventListener('click', () => {
+      this.count.update(c => c + 1);
+    });
+
+    effect(() => {
+      this.el.nativeElement.textContent =
+        `Has hecho clic ${this.count()} veces`;
+    });
+  }
+}
+```
+
+Uso:
+
+```html
+<button clickCounter></button>
+```
+
+Cada clic actualiza el Signal `count`, y el `effect()` se encarga de reflejarlo en el DOM.  
+El resultado es un comportamiento completamente reactivo, sin necesidad de lógica extra en el componente.
