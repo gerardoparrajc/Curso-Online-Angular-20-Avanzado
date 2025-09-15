@@ -734,3 +734,91 @@ Repetimos el *profiling*:
 - El tiempo de *Change Detection* se reduce drásticamente.
 - La experiencia del usuario es más fluida.
 
+## 3.10 Buenas prácticas de monitorización y diagnóstico en aplicaciones enterprise 
+
+En aplicaciones **enterprise**, el rendimiento y la estabilidad no son opcionales: son requisitos críticos. Una aplicación puede funcionar bien en desarrollo, pero en producción se enfrenta a **miles de usuarios concurrentes, cargas variables y entornos distribuidos**.  
+Por eso, además de escribir buen código, necesitamos **monitorizar, diagnosticar y anticipar problemas**.
+
+
+### 3.10.1. Instrumentación desde el inicio
+
+- **No esperes a tener problemas**: define desde el primer sprint cómo vas a medir el rendimiento.
+- Añade **logs estructurados** (JSON, con nivel de severidad) en lugar de simples `console.log`.
+- Usa **interceptores HTTP** para registrar:
+  - Latencia de peticiones.
+  - Errores de red.
+  - Respuestas lentas o con códigos inesperados.
+
+Ejemplo de interceptor de logging:
+
+```ts
+import { HttpRequest, HttpHandlerFn, HttpEvent, HttpEventType } from '@angular/common/http';
+import { Observable, tap } from 'rxjs';
+
+// Interceptor funcional para logging de peticiones y tiempos de respuesta
+export function loggingInterceptor(
+  req: HttpRequest<unknown>,
+  next: HttpHandlerFn
+): Observable<HttpEvent<unknown>> => {
+  const start = performance.now();
+
+  return next(req).pipe(
+    tap(event => {
+      if (event.type === HttpEventType.Response) {
+        const duration = performance.now() - start;
+        console.info(`[HTTP] ${req.method} ${req.url} - ${duration.toFixed(2)}ms`);
+      }
+    },
+    error => {
+      console.error(`[HTTP ERROR] ${req.method} ${req.url}`, error);
+    })
+  );
+};
+
+```
+
+### 3.10.2. Uso de Angular DevTools en producción controlada
+
+- Angular DevTools es ideal en desarrollo, pero en entornos enterprise también puedes habilitarlo en **entornos de staging** para reproducir problemas reales.
+- Haz *profiling* de:
+  - Ciclos de *Change Detection*.
+  - Componentes que consumen más tiempo.
+  - Señales que disparan renders innecesarios.
+
+### 3.10.3. Integración con herramientas de observabilidad
+
+En aplicaciones grandes, no basta con logs locales. Necesitamos **plataformas centralizadas**:
+
+- **Application Performance Monitoring (APM)**:  
+  Ejemplos: Azure Application Insights, Elastic APM, Datadog, New Relic.  
+  Permiten:
+  - Trazar peticiones de extremo a extremo (frontend → backend).
+  - Detectar cuellos de botella en tiempo real.
+  - Alertar automáticamente ante errores críticos.
+
+- **Error tracking**:  
+  Herramientas como Sentry o Rollbar capturan excepciones no controladas y las agrupan por frecuencia, versión y usuario afectado.
+
+### 3.10.4. Estrategias de logging y métricas
+
+- **Separar niveles de log**: `debug`, `info`, `warn`, `error`.  
+  Así puedes filtrar según el entorno.
+- **Correlación de logs**: añade un *requestId* o *traceId* a cada petición para seguirla en todo el sistema.
+- **Métricas clave a monitorizar**:
+  - Tiempo de renderizado inicial.
+  - Latencia de peticiones HTTP.
+  - Errores de usuario (formularios, validaciones).
+  - Uso de memoria y CPU en dispositivos cliente.
+
+### 3.10.5. Diagnóstico proactivo
+
+- **Alertas tempranas**: configura umbrales (ej. si el tiempo medio de respuesta supera 2s).
+- **Dashboards en tiempo real**: gráficos de rendimiento y errores accesibles al equipo.
+- **Pruebas de carga periódicas**: simula tráfico masivo para anticipar problemas antes de que ocurran.
+
+### 3.10.6. Buenas prácticas específicas para Angular + Signals
+
+- Evita Signals globales que disparen renders en cascada.  
+- Usa `ChangeDetectionStrategy.OnPush` en componentes críticos.  
+- Monitoriza con DevTools qué Signals provocan más *Change Detection*.  
+- Registra métricas de uso de Signals en componentes de alto tráfico.
