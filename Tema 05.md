@@ -1035,7 +1035,7 @@ export class UsuarioSignalsComponent {
 
 ---
 
-## Buenas prácticas para validación con Signals
+### Buenas prácticas para validación con Signals
 
 - Usa **Signals** para exponer el estado de validación y errores en la UI de forma reactiva.
 - Combina validaciones síncronas y asíncronas para una experiencia de usuario óptima.
@@ -1044,3 +1044,177 @@ export class UsuarioSignalsComponent {
 - Mantén la lógica de validación separada y reutilizable.
 
 
+
+## 5.4 Personalización de mensajes de error reactivos y dinámicos con Signals
+
+Una de las grandes ventajas de Angular 20 es que, gracias a los **signals**, la personalización de mensajes de error se vuelve completamente reactiva y dinámica. Los signals permiten que los mensajes de error respondan automáticamente a cambios en el idioma, el contexto de la aplicación o los datos del formulario, sin necesidad de lógica adicional ni suscripciones manuales.
+
+### ¿Por qué usar signals para personalizar mensajes de error?
+
+- **Reactividad total**: Cambia el idioma, el contexto o la lógica de mensajes y los errores se actualizan automáticamente en la UI.
+- **Centralización**: Toda la lógica de mensajes puede estar en signals o funciones computadas, facilitando el mantenimiento.
+- **Experiencia de usuario superior**: El feedback es inmediato y siempre contextualizado.
+
+---
+
+
+### Ejemplo: Mapeo dinámico de errores con Signals
+
+Un ejemplo sencillo de personalización de mensajes de error usando signals:
+
+```ts
+import { Component, inject, signal } from '@angular/core';
+import { FormBuilder, Validators, AbstractControl } from '@angular/forms';
+
+@Component({
+  selector: 'app-registro-errores',
+  template: `...` // Veremos el template después
+})
+export class RegistroErroresComponent {
+  private fb = inject(FormBuilder);
+
+  registroForm = this.fb.group({
+    nombre: ['', [Validators.required, Validators.minLength(3)]],
+    email: ['', [Validators.required, Validators.email]],
+  });
+
+  // Diccionario simple de mensajes
+  mensajesError: Record<string, string> = {
+    required: 'Este campo es obligatorio',
+    minlength: 'Debe tener al menos 3 caracteres',
+    email: 'Introduce un email válido',
+  };
+
+  // Signals para los mensajes de error
+  nombreError = signal('');
+  emailError = signal('');
+
+  constructor() {
+    this.registroForm.controls.nombre.valueChanges.subscribe(() => this.setNombreError());
+    this.registroForm.controls.email.valueChanges.subscribe(() => this.setEmailError());
+    this.setNombreError();
+    this.setEmailError();
+  }
+
+  private setNombreError() {
+    this.nombreError.set(this.getPrimerError(this.registroForm.controls.nombre));
+  }
+  private setEmailError() {
+    this.emailError.set(this.getPrimerError(this.registroForm.controls.email));
+  }
+
+  private getPrimerError(control: AbstractControl): string {
+    if (!control || !control.errors) return '';
+    const key = Object.keys(control.errors)[0];
+    return this.mensajesError[key] || 'Error desconocido';
+  }
+}
+```
+
+
+### Template con mensajes de error personalizados y reactivos
+
+```html
+<form [formGroup]="registroForm">
+  <div>
+    <label>Nombre:</label>
+    <input type="text" formControlName="nombre">
+    @if (nombreError()) {
+      <span class="error">{{ nombreError() }}</span>
+    }
+  </div>
+  <div>
+    <label>Email:</label>
+    <input type="email" formControlName="email">
+    @if (emailError()) {
+      <span class="error">{{ emailError() }}</span>
+    }
+  </div>
+  <button type="submit" [disabled]="registroForm.invalid">Registrar</button>
+</form>
+```
+
+---
+
+
+
+### Patrones avanzados de personalización con signals
+
+#### 1. Mensajes de error multilenguaje reactivos
+
+Define un signal para el idioma y un signal computado para los mensajes:
+
+```ts
+idioma = signal<'es' | 'en'>('es');
+
+mensajesError = computed(() =>
+  idioma() === 'es'
+    ? { required: 'Campo obligatorio', email: 'Email inválido', minlength: 'Debe tener al menos 3 caracteres' }
+    : { required: 'Required field', email: 'Invalid email', minlength: 'Must be at least 3 characters' }
+);
+
+getPrimerError(control: AbstractControl): string {
+  if (!control || !control.errors) return '';
+  const key = Object.keys(control.errors)[0];
+  return this.mensajesError()[key] || 'Error';
+}
+```
+
+Al cambiar el valor de `idioma`, todos los mensajes de error se actualizan automáticamente en la UI.
+
+#### 2. Mensajes contextuales según el flujo (reactivo)
+
+Puedes usar un signal para el contexto y un signal computado para los mensajes:
+
+```ts
+contexto = signal<'registro' | 'edicion'>('registro');
+
+mensajesError = computed(() => ({
+  required: contexto() === 'registro' ? 'Debes rellenar este campo' : 'Campo requerido',
+  email: 'Introduce un email válido',
+  minlength: 'Debe tener al menos 3 caracteres',
+}));
+
+getPrimerError(control: AbstractControl): string {
+  if (!control || !control.errors) return '';
+  const key = Object.keys(control.errors)[0];
+  return this.mensajesError()[key] || 'Error';
+}
+```
+
+#### 3. Mensajes enriquecidos con datos dinámicos (reactivo)
+
+Puedes usar un signal computado para generar mensajes personalizados según el valor del control:
+
+```ts
+mensajesError = computed(() => ({
+  required: 'Este campo es obligatorio',
+  minlength: (control: AbstractControl) => {
+    const e = control.errors?.['minlength'];
+    if (!e) return '';
+    const restantes = e.requiredLength - (control.value?.length || 0);
+    return `Te faltan ${restantes} caracteres`;
+  },
+  email: 'Introduce un email válido',
+}));
+
+getPrimerError(control: AbstractControl): string {
+  if (!control || !control.errors) return '';
+  const key = Object.keys(control.errors)[0];
+  const msg = this.mensajesError()[key];
+  return typeof msg === 'function' ? msg(control) : msg || 'Error';
+}
+```
+
+Así, cualquier cambio en idioma, contexto o datos del formulario se refleja automáticamente en los mensajes de error gracias a los signals.
+
+---
+
+### Resumen
+
+- Centraliza la lógica de mensajes de error en funciones reutilizables.
+- Usa signals para exponer los mensajes de error de forma reactiva.
+- Personaliza los mensajes según idioma, contexto y datos dinámicos.
+- Mejora la experiencia de usuario con feedback claro y contextualizado.
+
+La personalización reactiva de mensajes de error en Angular 20 permite construir formularios mucho más amigables, accesibles y profesionales.
