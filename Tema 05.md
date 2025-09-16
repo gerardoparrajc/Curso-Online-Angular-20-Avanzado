@@ -1210,7 +1210,6 @@ Así, cualquier cambio en idioma, contexto o datos del formulario se refleja aut
 
 ---
 
-### Resumen
 
 - Centraliza la lógica de mensajes de error en funciones reutilizables.
 - Usa signals para exponer los mensajes de error de forma reactiva.
@@ -1218,3 +1217,143 @@ Así, cualquier cambio en idioma, contexto o datos del formulario se refleja aut
 - Mejora la experiencia de usuario con feedback claro y contextualizado.
 
 La personalización reactiva de mensajes de error en Angular 20 permite construir formularios mucho más amigables, accesibles y profesionales.
+
+## 5.5 Integración con RxJS: validaciones y sincronización con Observables
+
+Aunque Angular 20 promueve el uso de Signals para la reactividad, RxJS sigue siendo fundamental para manejar flujos de datos asíncronos complejos, validaciones remotas, streams de eventos y sincronización con APIs externas. La integración entre Signals y Observables permite aprovechar lo mejor de ambos mundos.
+
+### ¿Cuándo usar RxJS junto a Signals en formularios?
+
+- Cuando necesitas consumir datos de APIs o servicios que exponen Observables.
+- Para validaciones asíncronas avanzadas (por ejemplo, debounce, cancelación, composición de streams).
+- Para sincronizar el estado del formulario con fuentes externas en tiempo real.
+
+---
+
+### Ejemplo: Validación asíncrona con debounce y cancelación usando RxJS y Signals
+
+Supongamos un formulario de registro donde el nombre de usuario debe ser único y la validación debe hacerse con debounce y cancelación de peticiones previas.
+
+```ts
+import { Component, inject, signal, effect } from '@angular/core';
+import { FormBuilder, Validators } from '@angular/forms';
+import { of, Subject } from 'rxjs';
+import { debounceTime, switchMap, takeUntil, delay } from 'rxjs/operators';
+
+@Component({
+  selector: 'app-usuario-rxjs',
+  template: `...` // Veremos el template después
+})
+export class UsuarioRxjsComponent {
+  private fb = inject(FormBuilder);
+  usuarioForm = this.fb.group({
+    username: ['', Validators.required]
+  });
+
+  usernameValue = signal('');
+  usernameAvailable = signal<boolean | null>(null);
+  checking = signal(false);
+
+  // Subject para cancelar peticiones previas
+  private destroy$ = new Subject<void>();
+
+  constructor() {
+    // Sincronizar el signal con el valor del control
+    this.usuarioForm.controls.username.valueChanges.subscribe(value => this.usernameValue.set(value ?? ''));
+
+    effect(() => {
+      const username = this.usernameValue();
+      this.destroy$.next(); // Cancela peticiones previas
+      if (username && username.length > 2) {
+        this.checking.set(true);
+        of(username).pipe(
+          debounceTime(500),
+          switchMap(name => this.verificarUsername(name)),
+          takeUntil(this.destroy$)
+        ).subscribe(isAvailable => {
+          this.usernameAvailable.set(isAvailable);
+          this.checking.set(false);
+        });
+      } else {
+        this.usernameAvailable.set(null);
+      }
+    });
+  }
+
+  private verificarUsername(username: string) {
+    // Simula llamada API
+    return of(username !== 'taken').pipe(delay(800));
+  }
+}
+```
+
+### Template reactivo con feedback de RxJS y Signals
+
+```html
+<form [formGroup]="usuarioForm">
+  <label>Usuario:</label>
+  <input type="text" formControlName="username">
+  @if (checking()) {
+    <span class="info">Comprobando disponibilidad...</span>
+  }
+  @if (usernameAvailable() === false) {
+    <span class="error">El usuario ya está en uso</span>
+  }
+  @if (usernameAvailable() === true) {
+    <span class="success">¡Usuario disponible!</span>
+  }
+  <button type="submit" [disabled]="!usuarioForm.valid || checking()">Registrar</button>
+</form>
+```
+
+---
+
+### Sincronización de formularios con streams externos
+
+Puedes sincronizar el valor del formulario con un Observable externo (por ejemplo, datos en tiempo real de un WebSocket):
+
+```ts
+import { Observable } from 'rxjs';
+
+@Component({
+  selector: 'app-sincronizacion-stream',
+  template: `...`
+})
+export class SincronizacionStreamComponent {
+  private fb = inject(FormBuilder);
+  perfilForm = this.fb.group({
+    nombre: [''],
+    email: ['']
+  });
+
+  // Simula un stream externo (por ejemplo, WebSocket)
+  datosPerfil$: Observable<{ nombre: string; email: string }>; // Inyectado o creado
+
+  constructor() {
+    // Suscribirse y actualizar el formulario automáticamente
+    this.datosPerfil$.subscribe(datos => {
+      this.perfilForm.patchValue(datos);
+    });
+  }
+}
+```
+
+---
+
+### Conversión entre Signals y Observables
+
+Angular proporciona utilidades para convertir entre signals y observables:
+
+- **fromObservable**: Convierte un Observable en un signal reactivo.
+- **toObservable**: Convierte un signal en un Observable para integrarlo con RxJS.
+
+```ts
+import { toSignal, toObservable } from '@angular/core/rxjs-interop';
+
+// Observable a signal
+const datosSignal = toSignal(datosPerfil$);
+
+// Signal a observable
+const username$ = toObservable(usernameValue);
+```
+
