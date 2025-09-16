@@ -45,7 +45,7 @@
 
 ---
 
-## 4. Directivas y control flow moderno
+## [4. Directivas y control flow moderno](Tema%2004.md)
 
 - Introducción al nuevo control flow con `@if`, `@for` y `@switch`  
 - Diferencias y ventajas respecto a `*ngIf` y `*ngFor` tradicionales    
@@ -58,7 +58,7 @@
 
 ---
 
-## 5. Formularios avanzados en Angular 20
+## [5. Formularios avanzados en Angular 20](Tema%2005.md)
 
 - Formularios fuertemente tipados (Typed Forms) y sus ventajas  
 - Creación de formularios híbridos (Typed + Signals)  
