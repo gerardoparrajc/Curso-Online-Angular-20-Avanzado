@@ -831,3 +831,216 @@ export class ProductoHibridoComponent {
 
 Los formularios híbridos representan la evolución natural de los formularios en Angular 20, combinando la robustez de los tipos con la eficiencia de los Signals para crear experiencias de usuario fluidas y código mantenible.
 
+## 5.3 Validaciones síncronas y asíncronas aplicadas con Signals
+
+
+Las **validaciones** son un aspecto fundamental en cualquier formulario avanzado. Angular 20 permite combinar la potencia de los **Typed Forms** con la reactividad de los **Signals** para implementar validaciones tanto síncronas como asíncronas de forma eficiente, declarativa y reactiva.
+
+### ¿Por qué usar Signals para validaciones?
+
+1. **Reactividad instantánea**: Los errores y estados de validación se actualizan automáticamente en la UI sin necesidad de suscripciones manuales.
+2. **Menos boilerplate**: Se reduce la necesidad de gestionar manualmente el estado de los errores.
+3. **Composición sencilla**: Es fácil combinar validaciones síncronas y asíncronas en un mismo flujo reactivo.
+4. **Feedback inmediato**: El usuario recibe retroalimentación en tiempo real, mejorando la experiencia de usuario.
+
+---
+
+### Ejemplo completo: Validaciones síncronas y asíncronas con Signals
+
+Supongamos un formulario de registro de usuario con los siguientes requisitos:
+- Validación síncrona: el nombre es obligatorio y debe tener al menos 3 caracteres.
+- Validación asíncrona: el email debe ser único (verificado contra una API).
+
+```ts
+import { Component, computed, effect, inject, signal } from '@angular/core';
+import { FormBuilder, Validators, AsyncValidatorFn, AbstractControl, ValidationErrors } from '@angular/forms';
+import { Observable, of } from 'rxjs';
+import { delay, map } from 'rxjs/operators';
+
+// Simulación de servicio de validación asíncrona
+function emailUnicoValidator(): AsyncValidatorFn {
+  return (control: AbstractControl): Observable<ValidationErrors | null> => {
+    const email = control.value;
+    // Simula una llamada HTTP
+    return of(email !== 'ya@existe.com').pipe(
+      delay(1000),
+      map(isUnique => (isUnique ? null : { emailNoUnico: true }))
+    );
+  };
+}
+
+interface RegistroForm {
+  nombre: string;
+  email: string;
+}
+
+@Component({
+  selector: 'app-registro-signals',
+  template: `...` // Veremos el template después
+})
+export class RegistroSignalsComponent {
+  private fb = inject(FormBuilder);
+
+  registroForm = this.fb.group<RegistroForm>({
+    nombre: ['', [Validators.required, Validators.minLength(3)]],
+    email: ['', [Validators.required, Validators.email]],
+  }, { asyncValidators: [emailUnicoValidator()] });
+
+  // Signals sincronizados con los valores y estados de los controles
+  nombreValue = signal<string>('');
+  emailValue = signal<string>('');
+  nombreErrors = signal<string[]>([]);
+  emailErrors = signal<string[]>([]);
+  emailChecking = signal(false);
+
+  constructor() {
+    // Sincronizar signals con los valores del formulario
+    this.registroForm.controls.nombre.valueChanges.subscribe(value => this.nombreValue.set(value ?? ''));
+    this.registroForm.controls.email.valueChanges.subscribe(value => this.emailValue.set(value ?? ''));
+
+    // Effect para validación síncrona del nombre
+    effect(() => {
+      const control = this.registroForm.controls.nombre;
+      this.nombreValue(); // Dependencia explícita para reactividad
+      const errors = [];
+      if (control.errors) {
+        if (control.errors['required']) errors.push('El nombre es obligatorio');
+        if (control.errors['minlength']) errors.push('Mínimo 3 caracteres');
+      }
+      this.nombreErrors.set(errors);
+    });
+
+    // Effect para validación asíncrona del email
+    effect(() => {
+      const control = this.registroForm.controls.email;
+      this.emailValue(); // Dependencia explícita para reactividad
+      const errors = [];
+      if (control.errors) {
+        if (control.errors['required']) errors.push('El email es obligatorio');
+        if (control.errors['email']) errors.push('Formato de email inválido');
+        if (control.errors['emailNoUnico']) errors.push('El email ya está registrado');
+      }
+      this.emailErrors.set(errors);
+      this.emailChecking.set(control.pending);
+    });
+  }
+}
+```
+
+### Template reactivo con feedback inmediato
+
+```html
+<form [formGroup]="registroForm" (ngSubmit)="onSubmit()">
+  <div>
+    <label>Nombre:</label>
+    <input type="text" formControlName="nombre">
+    <span *ngFor="let error of nombreErrors()" class="error">{{ error }}</span>
+  </div>
+  <div>
+    <label>Email:</label>
+    <input type="email" formControlName="email">
+    <span *ngFor="let error of emailErrors()" class="error">{{ error }}</span>
+    <span *ngIf="emailChecking()">Verificando email...</span>
+  </div>
+  <button type="submit" [disabled]="!registroForm.valid || emailChecking()">Registrar</button>
+</form>
+```
+
+---
+
+### Patrones avanzados de validación con Signals
+
+#### 1. Validación de campos dependientes
+
+```ts
+@Component({
+  selector: 'app-password-signals',
+  template: `...`
+})
+export class PasswordSignalsComponent {
+  private fb = inject(FormBuilder);
+
+  form = this.fb.group({
+    password: ['', [Validators.required, Validators.minLength(8)]],
+    confirmPassword: ['', Validators.required]
+  });
+
+  // Signals derivados de los valores de los controles
+  password = signal<string>('');
+  confirmPassword = signal<string>('');
+  passwordMatchError = signal<string | null>(null);
+
+  constructor() {
+    // Sincronizar los signals con los valores del formulario
+    this.form.controls.password.valueChanges.subscribe(value => this.password.set(value ?? ''));
+    this.form.controls.confirmPassword.valueChanges.subscribe(value => this.confirmPassword.set(value ?? ''));
+
+    effect(() => {
+      const pass = this.password();
+      const confirm = this.confirmPassword();
+      this.passwordMatchError.set(
+        pass && confirm && pass !== confirm ? 'Las contraseñas no coinciden' : null
+      );
+    });
+  }
+}
+```
+
+#### 2. Validación asíncrona con debounce y cancelación
+
+```ts
+import { debounceTime, switchMap } from 'rxjs/operators';
+
+@Component({
+  selector: 'app-usuario-signals',
+  template: `...`
+})
+export class UsuarioSignalsComponent {
+  private fb = inject(FormBuilder);
+  usuarioForm = this.fb.group({
+    username: ['', Validators.required]
+  });
+  usernameValue = signal<string>('');
+  usernameAvailable = signal<boolean | null>(null);
+  checking = signal(false);
+
+  constructor() {
+    // Sincronizar el signal con el valor del control
+    this.usuarioForm.controls.username.valueChanges.subscribe(value => this.usernameValue.set(value ?? ''));
+
+    effect(() => {
+      const username = this.usernameValue();
+      if (username && username.length > 2) {
+        this.checking.set(true);
+        // Simula llamada API con debounce
+        of(username).pipe(
+          debounceTime(500),
+          switchMap(name => this.verificarUsername(name))
+        ).subscribe(isAvailable => {
+          this.usernameAvailable.set(isAvailable);
+          this.checking.set(false);
+        });
+      } else {
+        this.usernameAvailable.set(null);
+      }
+    });
+  }
+
+  private verificarUsername(username: string): Observable<boolean> {
+    // Simula API
+    return of(username !== 'taken').pipe(delay(800));
+  }
+}
+```
+
+---
+
+## Buenas prácticas para validación con Signals
+
+- Usa **Signals** para exponer el estado de validación y errores en la UI de forma reactiva.
+- Combina validaciones síncronas y asíncronas para una experiencia de usuario óptima.
+- Utiliza **effects** para actualizar errores y estados en tiempo real.
+- Implementa debounce y cancelación en validaciones asíncronas para evitar llamadas innecesarias.
+- Mantén la lógica de validación separada y reutilizable.
+
+
