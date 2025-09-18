@@ -859,3 +859,88 @@ export class ChildComponent {
 
 👉 Aquí podemos diagnosticar fácilmente qué instancia se está inyectando en cada nivel y evitar confusiones.
 
+
+## 6.9. Diferencias clave entre DI clásico (NgModules) y DI funcional moderno
+
+La **Inyección de Dependencias (DI)** ha sido siempre uno de los pilares de Angular. Sin embargo, la forma de configurar y consumir dependencias ha cambiado radicalmente en los últimos años.  
+
+En las primeras versiones, todo giraba en torno a los **NgModules**: eran la unidad de organización y el lugar donde se declaraban los providers. Con la llegada de los **Standalone Components** y los **Functional Providers**, Angular 20 ofrece un modelo mucho más simple, declarativo y flexible.  
+
+### 6.9.1. DI clásico con NgModules
+
+En el modelo clásico, los servicios se registraban en los `providers` de un NgModule.  
+
+Ejemplo:
+
+```ts
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { HttpClientModule } from '@angular/common/http';
+import { AppComponent } from './app.component';
+import { UserService } from './user.service';
+
+@NgModule({
+  declarations: [AppComponent],
+  imports: [BrowserModule, HttpClientModule],
+  providers: [UserService],
+  bootstrap: [AppComponent]
+})
+export class AppModule {}
+```
+
+Características:  
+- Los **NgModules** eran obligatorios para organizar componentes, directivas, pipes y servicios.  
+- Los servicios se registraban en `providers` o con `@Injectable({ providedIn: 'root' })`.  
+- La configuración de dependencias estaba muy ligada a la estructura modular.  
+
+### 6.9.2. DI funcional moderno con Standalone + Functional Providers
+
+En Angular 20, los NgModules ya no son necesarios. Todo es **standalone por defecto**, y los servicios se configuran con **Functional Providers**.  
+
+Ejemplo con `bootstrapApplication`:
+
+```ts
+import { bootstrapApplication } from '@angular/platform-browser';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideRouter } from '@angular/router';
+import { AppComponent } from './app.component';
+import { routes } from './app.routes';
+import { AuthInterceptor } from './auth.interceptor';
+
+bootstrapApplication(AppComponent, {
+  providers: [
+    provideHttpClient(withInterceptors([AuthInterceptor])),
+    provideRouter(routes)
+  ]
+});
+```
+
+Características:  
+- No se necesitan NgModules: los componentes, directivas y pipes son standalone.  
+- Los servicios del framework (HTTP, Router, Animations, i18n) se configuran con funciones declarativas (`provideHttpClient`, `provideRouter`, etc.).  
+- Es más fácil **aislar providers a nivel de componente o ruta**, sin depender de módulos.  
+
+### 6.9.3. Diferencias clave
+
+| Aspecto | DI clásico (NgModules) | DI funcional moderno (Angular 20) |
+|---------|-------------------------|-----------------------------------|
+| **Unidad de organización** | NgModules obligatorios | Standalone Components por defecto |
+| **Registro de servicios** | `providers` en NgModules o `@Injectable({ providedIn })` | Functional Providers (`provideX()`) en `bootstrapApplication`, rutas o componentes |
+| **Configuración del framework** | Importación de módulos (`HttpClientModule`, `RouterModule.forRoot`) | Funciones declarativas (`provideHttpClient`, `provideRouter`) |
+| **Flexibilidad** | Configuración centralizada en módulos | Configuración granular en componentes y rutas |
+| **Legibilidad** | Verbosa, con boilerplate | Concisa y declarativa |
+| **Migración** | Necesario en proyectos legacy | Recomendado en proyectos nuevos |
+
+### 6.9.4. Casos de uso
+
+- **DI clásico (NgModules)**  
+  - Proyectos legacy que aún dependen de módulos.  
+  - Migraciones progresivas donde conviven NgModules y Standalone.  
+  - Escenarios donde se quiere mantener compatibilidad con librerías antiguas.  
+
+- **DI funcional moderno**  
+  - Nuevos proyectos en Angular 20.  
+  - Aplicaciones que buscan simplicidad y menor boilerplate.  
+  - Configuración declarativa de servicios del framework.  
+  - Escenarios donde se necesita aislar dependencias por componente o ruta.  
+
