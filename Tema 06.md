@@ -112,3 +112,200 @@ export const routes: Routes = [
 4. **Código más limpio**: `inject()` evita constructores largos y repetitivos, siempre que se use en un contexto válido.  
 
 
+## 6.2. Providers funcionales vs providers clásicos: diferencias y casos de uso
+
+La **inyección de dependencias** en Angular siempre ha sido muy flexible. Desde las primeras versiones, hemos podido declarar servicios y decidir cómo se crean, qué alcance tienen y cómo se sustituyen por implementaciones alternativas.  
+
+En Angular 20, además de los **providers clásicos**, contamos con los **providers funcionales**, una forma más moderna y declarativa de configurar la inyección. Entender ambos enfoques es clave para equipos que migran proyectos o que quieren aprovechar las ventajas de la nueva sintaxis.
+
+
+### 6.2.1. Providers clásicos
+
+Los providers clásicos son los que se han usado desde siempre en Angular. Se configuran mediante objetos que indican **qué token se provee** y **cómo se resuelve**.  
+
+Ejemplos típicos:
+
+```ts
+import { NgModule } from '@angular/core';
+import { LoggerService } from './logger.service';
+
+// Ejemplo clásico en un módulo o componente
+@NgModule({
+  providers: [
+    LoggerService, // shorthand de { provide: LoggerService, useClass: LoggerService }
+    { provide: 'API_URL', useValue: 'https://api.midominio.com' },
+    { provide: LoggerService, useClass: BetterLoggerService },
+    { provide: LoggerService, useExisting: OtherLoggerService },
+    { provide: LoggerService, useFactory: () => new LoggerService(true) }
+  ]
+})
+export class AppModule {}
+```
+
+Características:  
+- Se basan en objetos de configuración (`provide`, `useClass`, `useValue`, `useFactory`, `useExisting`).  
+- Son muy expresivos y permiten sustituir implementaciones fácilmente.  
+- Han sido la base de Angular desde sus inicios.  
+
+### 6.2.2. Providers funcionales
+
+Con Angular moderno, especialmente desde Angular 15 en adelante, se introdujo una nueva forma de declarar providers: **los providers funcionales**.  
+
+En lugar de objetos, se usan **funciones auxiliares** que simplifican la sintaxis y mejoran la legibilidad.  
+
+Ejemplo:
+
+```ts
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideRouter } from '@angular/router';
+import { importProvidersFrom } from '@angular/core';
+
+export const appConfig = {
+  providers: [
+    provideHttpClient(
+      withInterceptors([authInterceptor, loggingInterceptor])
+    ),
+    provideRouter(routes),
+  ]
+};
+```
+
+Características:  
+- Usan funciones como `provideHttpClient()`, `provideRouter()`, `provideAnimations()`.  
+- Son más declarativos y fáciles de leer.  
+- Permiten configurar dependencias complejas con menos código repetitivo.  
+- Están pensados para el mundo **standalone**, donde ya no dependemos de NgModules.  
+
+### 6.2.3. Diferencias clave
+
+| Aspecto | Providers clásicos | Providers funcionales |
+|---------|-------------------|------------------------|
+| **Sintaxis** | Basada en objetos `{ provide, useClass, useValue, useFactory }` | Basada en funciones (`provideX()`) |
+| **Legibilidad** | Verbosa en configuraciones complejas | Más concisa y declarativa |
+| **Compatibilidad** | Disponible desde Angular 2 | Introducidos en Angular 15, consolidados en Angular 20 |
+| **Uso típico** | Sustitución de clases, valores estáticos, factories personalizadas | Configuración de servicios del framework (HTTP, Router, Animations, i18n) |
+| **Migración** | Sigue siendo válido y soportado | Recomendado para nuevos proyectos standalone |
+
+### 6.2.4. Casos de uso
+
+#### Cuándo usar providers clásicos
+- Cuando necesitas **control fino** sobre cómo se crea un servicio.  
+- Para **aliasing** (`useExisting`) o **factories personalizadas**.  
+- En proyectos legacy que aún usan NgModules.  
+
+Ejemplo:
+
+```ts
+{ provide: LoggerService, useFactory: () => new LoggerService(true) }
+```
+
+#### Cuándo usar providers funcionales
+- En **aplicaciones nuevas standalone**.  
+- Para configurar **servicios del framework** (HTTP, Router, Animations, i18n).  
+- Cuando quieres **menos boilerplate** y una sintaxis más clara.  
+
+Ejemplo:
+
+```ts
+provideHttpClient(withInterceptors([authInterceptor]))
+```
+
+
+## 6.3. Jerarquía avanzada de inyección y modificadores (`@Optional`, `@Self`, `@SkipSelf`)
+
+La **inyección de dependencias (DI)** en Angular se basa en un sistema jerárquico de inyectores. Esto significa que cuando un componente solicita un servicio, Angular no busca únicamente en un único lugar, sino que recorre una **cadena de inyectores** hasta encontrar una coincidencia.  
+
+Comprender esta jerarquía es fundamental para aplicaciones grandes, donde distintos componentes pueden necesitar **instancias distintas** de un mismo servicio o, por el contrario, compartir una única instancia global.
+
+### 6.3.1. La jerarquía de inyectores en Angular
+
+En Angular existen principalmente dos niveles de inyectores:
+
+- **EnvironmentInjector (nivel de aplicación)**: es el inyector raíz, creado al arrancar la aplicación. Los servicios con `providedIn: 'root'` viven aquí y son compartidos en toda la app.  
+- **ElementInjector (nivel de componente/directiva)**: cada componente/directiva puede tener su propio inyector local, definido en su propiedad `providers`.  
+
+Cuando Angular necesita resolver una dependencia:  
+1. Busca primero en el **inyector local** del componente.  
+2. Si no la encuentra, sube en la jerarquía hacia el padre.  
+3. Si llega al inyector raíz y tampoco está, lanza un error `NullInjectorError`.  
+
+### 6.3.2. Modificadores de inyección
+
+Angular nos da decoradores especiales para **alterar este comportamiento por defecto**.  
+
+#### 🔹 `@Self()`
+
+Indica que la dependencia debe resolverse **únicamente en el inyector local** del componente/directiva.  
+- Si no existe allí, Angular lanza un error.  
+- Útil cuando queremos asegurarnos de que un servicio se provea de forma explícita en ese componente.  
+
+```ts
+constructor(@Self() private logger: LoggerService) {}
+```
+
+👉 Aquí, si `LoggerService` no está en los `providers` del componente, fallará aunque exista en el inyector raíz.
+
+#### 🔹 `@SkipSelf()`
+
+Indica que Angular debe **saltar el inyector local** y empezar la búsqueda en el padre.  
+- Útil cuando queremos evitar una redefinición local y usar la instancia de un nivel superior.  
+
+```ts
+constructor(@SkipSelf() private logger: LoggerService) {}
+```
+
+👉 Aquí, aunque el componente tenga su propio `LoggerService` en `providers`, Angular usará el del padre.
+
+#### 🔹 `@Optional()`
+
+Indica que la dependencia es **opcional**.  
+- Si Angular no encuentra el servicio en la jerarquía, en lugar de lanzar un error, inyecta `null`.  
+- Muy útil para dependencias que pueden o no estar presentes.  
+
+```ts
+constructor(@Optional() private analytics?: AnalyticsService) {}
+```
+
+👉 Aquí, si `AnalyticsService` no está registrado en ningún inyector, la propiedad será `undefined` y el componente seguirá funcionando.
+
+### 6.3.3. Ejemplo práctico combinando modificadores
+
+Imaginemos un escenario con un componente padre y un hijo, y un servicio `LoggerService`:
+
+```ts
+@Component({
+  selector: 'app-parent',
+  template: `<app-child></app-child>`,
+  providers: [LoggerService] // Proveedor en el padre
+})
+export class ParentComponent {}
+
+@Component({
+  selector: 'app-child',
+  template: `<p>Child works!</p>`,
+  providers: [LoggerService] // Proveedor en el hijo
+})
+export class ChildComponent {
+  constructor(
+    @Self() private localLogger: LoggerService,
+    @SkipSelf() private parentLogger: LoggerService,
+    @Optional() private maybeAnalytics?: AnalyticsService
+  ) {
+    console.log('Local logger:', this.localLogger);
+    console.log('Parent logger:', this.parentLogger);
+    console.log('Analytics:', this.maybeAnalytics);
+  }
+}
+```
+
+- `@Self()` → obtiene el `LoggerService` definido en el hijo.  
+- `@SkipSelf()` → ignora el del hijo y obtiene el del padre.  
+- `@Optional()` → si `AnalyticsService` no existe en ningún inyector, no rompe la app.  
+
+### 6.3.4. Casos de uso reales
+
+- **`@Self()`**: cuando queremos garantizar que un servicio se provea de forma explícita en un componente (ej. un `FormControlDirective` que necesita su propio `NgControl`).  
+- **`@SkipSelf()`**: útil en directivas que se comunican con un servicio del componente padre (ej. `ControlContainer` en formularios reactivos).  
+- **`@Optional()`**: ideal para servicios que son opcionales, como un `LoggerService` que solo se inyecta en entornos de desarrollo.  
+
+
