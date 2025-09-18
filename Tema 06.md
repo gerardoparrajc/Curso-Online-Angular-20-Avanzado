@@ -309,3 +309,124 @@ export class ChildComponent {
 - **`@Optional()`**: ideal para servicios que son opcionales, como un `LoggerService` que solo se inyecta en entornos de desarrollo.  
 
 
+## 6.4. Uso de `InjectionToken` para inyecciones condicionales y seguras
+
+En Angular, la inyección de dependencias se basa en **tokens**: identificadores que el inyector utiliza para saber qué instancia debe entregar. Cuando inyectamos una clase (por ejemplo, `UserService`), la propia clase actúa como token.  
+
+Pero ¿qué ocurre si queremos inyectar algo que **no es una clase**? Por ejemplo:  
+- Una **configuración** (un objeto con parámetros).  
+- Un **valor primitivo** (string, number, boolean).  
+- Una **interfaz** de TypeScript (que no existe en tiempo de ejecución).  
+
+En estos casos, necesitamos un **`InjectionToken`**: un objeto especial que Angular puede usar como identificador único y seguro.
+
+### 6.4.1. Creación de un `InjectionToken`
+
+Un `InjectionToken` se crea con el constructor `new InjectionToken<T>()`, donde `T` es el tipo de dato que queremos inyectar.
+
+```ts
+import { InjectionToken } from '@angular/core';
+
+export interface AppConfig {
+  apiUrl: string;
+  featureFlag: boolean;
+}
+
+export const APP_CONFIG = new InjectionToken<AppConfig>('app.config');
+```
+
+👉 Aquí hemos creado un token llamado `APP_CONFIG` que representa un objeto de configuración de tipo `AppConfig`.
+
+### 6.4.2. Proveer un valor con un `InjectionToken`
+
+Podemos asociar un valor al token en los `providers` de la aplicación:
+
+```ts
+import { APP_CONFIG } from './app.config';
+
+export const appConfig: AppConfig = {
+  apiUrl: 'https://api.midominio.com',
+  featureFlag: true
+};
+
+export const appProviders = [
+  { provide: APP_CONFIG, useValue: appConfig }
+];
+```
+
+### 6.4.3. Inyectar el valor en un componente o servicio
+
+```ts
+import { Component, inject } from '@angular/core';
+import { APP_CONFIG, AppConfig } from './app.config';
+
+@Component({
+  selector: 'app-root',
+  template: `<p>API: {{ config.apiUrl }}</p>`
+})
+export class AppComponent {
+  config = inject(APP_CONFIG); // ✅ inyección segura y tipada
+}
+```
+
+👉 Angular garantiza que el valor inyectado corresponde al tipo `AppConfig`, lo que evita errores en tiempo de compilación.
+
+### 6.4.4. `InjectionToken` con factorías y lógica condicional
+
+Un `InjectionToken` también puede definirse con una **factoría**, lo que permite crear el valor dinámicamente e incluso inyectar otros servicios dentro de esa factoría.
+
+```ts
+import { InjectionToken, inject } from '@angular/core';
+import { EnvironmentService } from './environment.service';
+
+export const API_URL = new InjectionToken<string>('api.url', {
+  providedIn: 'root',
+  factory: () => {
+    const env = inject(EnvironmentService);
+    return env.isProd ? 'https://api.prod.com' : 'https://api.dev.com';
+  }
+});
+```
+
+👉 Aquí el valor del token `API_URL` depende de si estamos en producción o en desarrollo.  
+Esto nos da **inyecciones condicionales** sin necesidad de escribir lógica repetida en cada componente.
+
+### 6.4.5. Ejemplo práctico: configuración multi-entorno
+
+Supongamos que tenemos distintos endpoints según el entorno:
+
+```ts
+export const FEATURE_FLAG = new InjectionToken<boolean>('feature.flag', {
+  providedIn: 'root',
+  factory: () => {
+    return window.location.hostname.includes('staging');
+  }
+});
+```
+
+En un componente:
+
+```ts
+@Component({
+  selector: 'app-feature',
+  template: `
+    @if (featureFlag) {
+      <p>Funcionalidad beta activada 🚀</p>
+    }
+  `
+})
+export class FeatureComponent {
+  featureFlag = inject(FEATURE_FLAG);
+}
+```
+
+👉 De esta forma, el componente se adapta automáticamente al entorno sin necesidad de condicionales dispersos en el código.
+
+### 6.4.6. Buenas prácticas con `InjectionToken`
+
+- **Usa `InjectionToken` para interfaces y valores primitivos**: nunca intentes inyectar directamente un string o un número, ya que no son únicos.  
+- **Centraliza la configuración**: define tokens para parámetros globales (API URLs, flags, claves de terceros).  
+- **Aprovecha las factorías**: permiten lógica condicional y valores calculados en tiempo de ejecución.  
+- **Evita duplicados**: recuerda que cada `new InjectionToken()` crea un identificador único; si lo defines en varios archivos, Angular los tratará como tokens distintos.  
+
+
