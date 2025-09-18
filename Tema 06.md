@@ -944,3 +944,84 @@ Características:
   - Configuración declarativa de servicios del framework.  
   - Escenarios donde se necesita aislar dependencias por componente o ruta.  
 
+
+## 6.10. Buenas prácticas para mantener escalabilidad y testabilidad con DI
+
+La DI en Angular es mucho más que un mecanismo técnico: es una estrategia de arquitectura. En proyectos enterprise, donde múltiples equipos trabajan sobre la misma base de código y la aplicación debe crecer sin perder calidad, aplicar buenas prácticas en DI es esencial.  
+
+### 6.10.1. Centralizar y tipar la configuración con `InjectionToken`
+
+- Usa **`InjectionToken`** para valores de configuración (URLs, flags, claves).  
+- Evita inyectar directamente strings o números, ya que no son únicos.  
+- Define interfaces para garantizar tipado fuerte y claridad.  
+
+Ejemplo:
+
+```ts
+export interface ApiConfig {
+  users: string;
+  orders: string;
+}
+
+export const API_CONFIG = new InjectionToken<ApiConfig>('api.config');
+
+bootstrapApplication(AppComponent, {
+  providers: [
+    { provide: API_CONFIG, useValue: { users: '/api/users', orders: '/api/orders' } }
+  ]
+});
+```
+
+👉 Esto facilita la escalabilidad, ya que cada equipo puede extender la configuración sin romper el contrato.
+
+### 6.10.2. Usar Functional Providers para servicios del framework
+
+- Prefiere `provideHttpClient`, `provideRouter`, `provideAnimations` en lugar de módulos clásicos.  
+- Encapsula configuraciones comunes en funciones `provideX()` propias.  
+- Esto reduce el *boilerplate* y hace que la configuración sea más declarativa y fácil de mantener.  
+
+### 6.10.3. Controlar el alcance de los servicios
+
+- **Globales (`providedIn: 'root'`)**: para servicios compartidos en toda la aplicación (ej. autenticación).  
+- **Locales (providers en componentes o rutas)**: para servicios con estado aislado o dependencias específicas.  
+- **ViewProviders**: para encapsular servicios internos que no deben filtrarse a contenido proyectado.  
+
+👉 Esto evita instancias duplicadas y mantiene la arquitectura limpia.
+
+### 6.10.4. Favorecer la inyección sobre la creación manual
+
+- Nunca uses `new` para instanciar servicios dentro de componentes.  
+- Siempre inyecta dependencias: esto permite sustituirlas fácilmente en pruebas o entornos distintos.  
+
+Ejemplo en pruebas:
+
+```ts
+TestBed.configureTestingModule({
+  providers: [
+    { provide: UserService, useValue: jasmine.createSpyObj('UserService', ['getUser']) }
+  ]
+});
+```
+
+👉 Gracias a la DI, podemos sustituir servicios reales por *mocks* en pruebas unitarias.
+
+### 6.10.5. Diseñar servicios pequeños y especializados
+
+- Aplica el **Principio de Responsabilidad Única (SRP)**: cada servicio debe encargarse de una sola cosa.  
+- Divide servicios grandes en varios más pequeños y composables.  
+- Esto mejora la testabilidad y facilita la colaboración entre equipos.  
+
+### 6.10.6. Aprovechar modificadores de inyección para escenarios complejos
+
+- `@Optional()` para dependencias que pueden no estar presentes.  
+- `@Self()` para garantizar que un servicio se provea localmente.  
+- `@SkipSelf()` para forzar el uso de un servicio del padre.  
+
+👉 Estos modificadores ayudan a mantener jerarquías de inyección predecibles y fáciles de depurar.
+
+### 6.10.7. Integrar DI en la estrategia de pruebas
+
+- Usa **TestBed** solo cuando sea necesario (componentes, directivas).  
+- Para servicios puros, prueba directamente sin infraestructura de Angular.  
+- Simula dependencias con *spies* o *mocks* inyectados mediante providers.  
+- En pruebas E2E, usa atributos `data-cy` o similares para desacoplar la lógica de test del CSS o del contenido.  
