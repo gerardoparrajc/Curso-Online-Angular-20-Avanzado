@@ -616,3 +616,161 @@ bootstrapApplication(AppComponent, {
 - **Componentes standalone con dependencias específicas**: aislar configuraciones sin afectar al resto de la app.  
 
 
+## 6.7. Casos prácticos de DI en aplicaciones enterprise distribuidas
+
+En aplicaciones grandes y distribuidas, la **DI** no solo sirve para inyectar un servicio de utilidades o un cliente HTTP. Se convierte en una herramienta estratégica para:  
+- **Orquestar comunicación entre módulos distribuidos**.  
+- **Configurar dinámicamente servicios según el entorno**.  
+- **Permitir extensibilidad** en arquitecturas de microfrontends o librerías compartidas.  
+- **Garantizar testabilidad y mantenibilidad** en equipos grandes.  
+
+Veamos algunos casos prácticos.
+
+### 6.7.1. Configuración multi-entorno con `InjectionToken`
+
+En entornos distribuidos, cada microservicio puede tener su propio endpoint. En lugar de “hardcodear” URLs, podemos centralizar la configuración con `InjectionToken`.
+
+```ts
+import { InjectionToken } from '@angular/core';
+
+export interface ApiConfig {
+  users: string;
+  orders: string;
+}
+
+export const API_CONFIG = new InjectionToken<ApiConfig>('api.config');
+```
+
+Provisión en `bootstrapApplication`:
+
+```ts
+bootstrapApplication(AppComponent, {
+  providers: [
+    {
+      provide: API_CONFIG,
+      useValue: {
+        users: 'https://api.empresa.com/users',
+        orders: 'https://api.empresa.com/orders'
+      }
+    }
+  ]
+});
+```
+
+Uso en un servicio:
+
+```ts
+@Injectable({ providedIn: 'root' })
+export class UserService {
+  constructor(@Inject(API_CONFIG) private config: ApiConfig, private http: HttpClient) {}
+
+  getUsers() {
+    return this.http.get(`${this.config.users}`);
+  }
+}
+```
+
+👉 Esto permite que cada entorno (dev, staging, prod) tenga su propia configuración sin tocar el código de los servicios.
+
+### 6.7.2. Microfrontends y DI compartida
+
+En arquitecturas de **microfrontends**, distintos equipos desarrollan módulos independientes que se integran en una misma aplicación. La DI permite **compartir servicios globales** (ej. autenticación, tracking) y a la vez **aislar servicios locales**.
+
+Ejemplo:  
+- El *shell* de la aplicación provee un `AuthService` global.  
+- Cada microfrontend puede inyectarlo sin redefinirlo.  
+- Si un microfrontend necesita un `LoggerService` distinto, puede declararlo en sus `providers`, sin afectar al resto.
+
+```ts
+@Component({
+  selector: 'app-orders',
+  template: `<h2>Pedidos</h2>`,
+  providers: [LoggerService] // instancia propia, aislada
+})
+export class OrdersComponent {
+  constructor(private auth: AuthService, private logger: LoggerService) {}
+}
+```
+
+👉 Así, `AuthService` es compartido, pero `LoggerService` es independiente en cada microfrontend.
+
+### 6.7.3. Plugins y extensibilidad con Array Providers
+
+En aplicaciones distribuidas, es común tener un sistema de **plugins** donde cada módulo aporta lógica adicional (ej. validadores, interceptores, estrategias de cache).  
+
+Con `multi: true`, Angular acumula todas las implementaciones en un array:
+
+```ts
+export const VALIDATORS = new InjectionToken<Array<ValidatorFn>>('validators');
+
+bootstrapApplication(AppComponent, {
+  providers: [
+    { provide: VALIDATORS, useValue: (v: string) => v.length > 3, multi: true },
+    { provide: VALIDATORS, useValue: (v: string) => /^[a-z]+$/.test(v), multi: true }
+  ]
+});
+```
+
+Uso en un servicio:
+
+```ts
+@Injectable({ providedIn: 'root' })
+export class ValidationService {
+  constructor(@Inject(VALIDATORS) private validators: ValidatorFn[]) {}
+
+  validate(value: string): boolean {
+    return this.validators.every(fn => fn(value));
+  }
+}
+```
+
+👉 Esto permite que cada equipo añada sus validadores sin modificar el código central.
+
+### 6.7.4. Inyección condicional con factorías
+
+En sistemas distribuidos, a veces necesitamos que un servicio cambie de implementación según el entorno o el rol del usuario.  
+
+```ts
+@Injectable()
+export class MockPaymentService { /* ... */ }
+
+@Injectable()
+export class RealPaymentService { /* ... */ }
+
+export const PAYMENT_SERVICE = new InjectionToken<PaymentService>('payment.service');
+
+bootstrapApplication(AppComponent, {
+  providers: [
+    {
+      provide: PAYMENT_SERVICE,
+      useFactory: () => {
+        return environment.production ? new RealPaymentService() : new MockPaymentService();
+      }
+    }
+  ]
+});
+```
+
+👉 Esto permite que en desarrollo usemos mocks y en producción el servicio real, sin cambiar el código de los componentes.
+
+### 6.7.5. Comunicación entre equipos con servicios compartidos
+
+En aplicaciones distribuidas, distintos equipos pueden necesitar comunicarse a través de un **bus de eventos**. Este bus puede ser un servicio inyectado globalmente:
+
+```ts
+@Injectable({ providedIn: 'root' })
+export class EventBus {
+  private events = new Subject<{ type: string; payload: any }>();
+
+  emit(event: { type: string; payload: any }) {
+    this.events.next(event);
+  }
+
+  on(type: string): Observable<any> {
+    return this.events.asObservable().pipe(filter(e => e.type === type), map(e => e.payload));
+  }
+}
+```
+
+👉 Cualquier microfrontend puede inyectar `EventBus` y emitir/escuchar eventos, sin acoplarse directamente a otros módulos.
+
