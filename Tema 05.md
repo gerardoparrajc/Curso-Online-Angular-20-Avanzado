@@ -501,3 +501,110 @@ Si queremos mostrar mensajes distintos según el tipo de error, podemos usar `@s
 - **Centralización**: la lógica de errores se concentra en un helper o servicio.  
 - **Escalabilidad**: fácil de extender a catálogos de mensajes e internacionalización.  
 - **Compatibilidad**: funciona con Typed Forms, validadores síncronos y asíncronos.  
+
+## 5.5 Integración con RxJS: validaciones y sincronización con Observables
+
+Aunque Angular 20 ha potenciado el uso de **Signals** como mecanismo de reactividad, **RxJS** sigue siendo una pieza fundamental del ecosistema. Muchos módulos de Angular (HttpClient, Router, Forms) están construidos sobre **Observables**, y en formularios avanzados es habitual necesitar **validaciones asíncronas** o **sincronización de datos en tiempo real**.  
+
+La clave está en la **interoperabilidad entre Signals y Observables**, que Angular facilita con utilidades como `toSignal` y `toObservable`.
+
+
+### 5.5.1. Validaciones asíncronas con RxJS
+
+Un caso típico es comprobar en el backend si un valor ya existe (ej. nombre de usuario). Esto se implementa con un **AsyncValidator** que devuelve un `Observable<ValidationErrors | null>`.
+
+```ts
+import { FormControl, AsyncValidatorFn, ValidationErrors } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { Observable, of, timer } from 'rxjs';
+import { switchMap, map, catchError } from 'rxjs/operators';
+
+function usernameAvailableValidator(http: HttpClient): AsyncValidatorFn {
+  return (control: FormControl<string>): Observable<ValidationErrors | null> => {
+    const value = control.value?.trim();
+    if (!value) return of(null);
+
+    return timer(300).pipe( // debounce
+      switchMap(() => http.get<{ available: boolean }>(`/api/users/check/${value}`)),
+      map(res => (res.available ? null : { usernameTaken: true })),
+      catchError(() => of(null))
+    );
+  };
+}
+```
+
+👉 Aquí RxJS nos permite **controlar asincronía, aplicar debounce y manejar errores** de forma declarativa.
+
+### 5.5.2. Exponer validaciones como Signals
+
+Podemos convertir el flujo de validación en un **Signal** con `toSignal`, lo que facilita integrarlo en la UI:
+
+```ts
+import { toSignal } from '@angular/core/rxjs-interop';
+import { computed } from '@angular/core';
+
+const statusSig = toSignal(usernameControl.statusChanges, { initialValue: usernameControl.status });
+const valueSig = toSignal(usernameControl.valueChanges, { initialValue: usernameControl.value });
+
+const usernameError = computed(() => {
+  statusSig(); // dependencias
+  valueSig();
+
+  if (usernameControl.pending) return '⏳ Comprobando...';
+  if (usernameControl.hasError('required')) return 'El usuario es obligatorio';
+  if (usernameControl.hasError('minlength')) return 'Mínimo 3 caracteres';
+  if (usernameControl.hasError('usernameTaken')) return 'El usuario ya existe';
+  return '';
+});
+```
+
+En la plantilla:
+
+```html
+<input formControlName="username" />
+@if (usernameError()) {
+  <p class="error">{{ usernameError() }}</p>
+}
+```
+
+### 5.5.3. Sincronización con Observables externos
+
+Además de validaciones, los formularios suelen necesitar **sincronizarse con flujos de datos externos**:  
+- Actualizar un formulario con datos de un servicio en tiempo real.  
+- Guardar automáticamente cambios en el backend.  
+- Integrar formularios con stores de estado (NgRx, Akita, etc.).  
+
+Ejemplo: sincronizar un formulario con un `BehaviorSubject` de perfil de usuario:
+
+```ts
+import { BehaviorSubject } from 'rxjs';
+import { toSignal, toObservable } from '@angular/core/rxjs-interop';
+
+const user$ = new BehaviorSubject({ name: 'Ana', email: 'ana@test.com' });
+
+// Convertimos el Observable en Signal
+const userSig = toSignal(user$, { initialValue: { name: '', email: '' } });
+
+// Formulario tipado
+form = new FormGroup({
+  name: new FormControl(userSig().name, { nonNullable: true }),
+  email: new FormControl(userSig().email, { nonNullable: true })
+});
+
+// Convertimos el formulario en Observable para sincronizar cambios
+const formChanges$ = toObservable(form.valueChanges);
+
+// Guardamos automáticamente en el backend
+formChanges$.pipe(
+  switchMap(value => http.post('/api/users/update', value))
+).subscribe();
+```
+
+👉 Aquí vemos cómo `toSignal` y `toObservable` permiten **puentear Signals y Observables**, logrando sincronización bidireccional.
+
+### 5.5.4. Ventajas de la integración RxJS + Signals
+
+- **Compatibilidad total**: puedes seguir usando RxJS en validadores, peticiones HTTP y stores.  
+- **Reactividad declarativa**: los Signals permiten reflejar el estado en la UI sin suscripciones manuales.  
+- **Sincronización bidireccional**: `toSignal` y `toObservable` facilitan el intercambio entre ambos mundos.  
+- **Escalabilidad**: ideal para formularios enterprise que combinan datos locales y remotos.  
