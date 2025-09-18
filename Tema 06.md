@@ -509,3 +509,110 @@ En formularios reactivos, Angular usa `viewProviders` para inyectar directivas c
 - **Combínalos con InjectionTokens** para mayor claridad y seguridad en configuraciones complejas.  
 
 
+## 6.6. Functional Providers y su integración con Standalone Components
+
+Con la llegada del modelo **standalone** en Angular, la forma de configurar dependencias también evolucionó. Los **Functional Providers** son una nueva manera, más declarativa y expresiva, de registrar servicios y dependencias en la aplicación.  
+
+En lugar de usar objetos de configuración con `provide`, `useClass`, `useValue` o `useFactory`, los Functional Providers se apoyan en **funciones auxiliares** que encapsulan la lógica de registro. Esto hace que el código sea más legible, más fácil de mantener y más coherente con el estilo moderno de Angular.
+
+### 6.6.1. ¿Qué son los Functional Providers?
+
+Un **Functional Provider** es simplemente una función que devuelve un conjunto de providers ya configurados. Angular ofrece varias funciones listas para usar, como:  
+
+- `provideHttpClient()` → configura el cliente HTTP.  
+- `provideRouter()` → configura el enrutador.  
+- `provideAnimations()` → habilita animaciones.  
+- `provideZoneChangeDetection()` → configura la detección de cambios.  
+
+Estas funciones encapsulan la configuración que antes requería NgModules o providers clásicos, y están pensadas para integrarse directamente en aplicaciones standalone.
+
+### 6.6.2. Ejemplo básico con `bootstrapApplication`
+
+En Angular 20, las aplicaciones standalone se inician con `bootstrapApplication`. Allí es donde los Functional Providers brillan:
+
+```ts
+import { bootstrapApplication } from '@angular/platform-browser';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideRouter } from '@angular/router';
+import { AppComponent } from './app.component';
+import { routes } from './app.routes';
+import { authInterceptor } from './auth.interceptor';
+
+bootstrapApplication(AppComponent, {
+  providers: [
+    provideHttpClient(
+      withInterceptors([authInterceptor])
+    ),
+    provideRouter(routes)
+  ]
+});
+```
+
+👉 Aquí, en lugar de importar `HttpClientModule` o `RouterModule.forRoot()`, usamos funciones declarativas (`provideHttpClient`, `provideRouter`) que configuran todo lo necesario.  
+
+### 6.6.3. Integración con Standalone Components
+
+Los **Standalone Components** pueden declarar sus propios providers, y estos pueden ser tanto clásicos como funcionales.  
+
+Ejemplo: un componente que necesita un cliente HTTP con configuración específica:
+
+```ts
+import { Component } from '@angular/core';
+import { provideHttpClient, withFetch } from '@angular/common/http';
+
+@Component({
+  selector: 'app-dashboard',
+  template: `<h2>Dashboard</h2>`,
+  providers: [
+    provideHttpClient(withFetch()) // Functional Provider a nivel de componente
+  ]
+})
+export class DashboardComponent {}
+```
+
+👉 De esta forma, el `DashboardComponent` y sus hijos tendrán un cliente HTTP configurado con `fetch`, sin afectar al resto de la aplicación.
+
+### 6.6.4. Functional Providers personalizados
+
+También podemos crear nuestros propios Functional Providers para encapsular configuraciones comunes.  
+
+Ejemplo: un provider para configuración de API:
+
+```ts
+import { InjectionToken } from '@angular/core';
+
+export const API_URL = new InjectionToken<string>('api.url');
+
+export function provideApiConfig(url: string) {
+  return [
+    { provide: API_URL, useValue: url }
+  ];
+}
+```
+
+Uso en `bootstrapApplication`:
+
+```ts
+bootstrapApplication(AppComponent, {
+  providers: [
+    provideApiConfig('https://api.midominio.com')
+  ]
+});
+```
+
+👉 Esto nos permite centralizar configuraciones y reutilizarlas en distintos contextos.
+
+### 6.6.5. Diferencias frente a providers clásicos
+
+- **Sintaxis**: los clásicos usan objetos `{ provide, useClass }`; los funcionales usan funciones (`provideX()`).  
+- **Legibilidad**: los funcionales son más concisos y expresivos.  
+- **Compatibilidad**: ambos conviven; los clásicos siguen siendo válidos.  
+- **Recomendación**: en aplicaciones nuevas standalone, se recomienda preferir los funcionales.  
+
+### 6.6.6. Casos de uso recomendados
+
+- **Configuración de servicios del framework**: HTTP, Router, Animations, i18n.  
+- **Encapsulación de configuraciones comunes**: crear funciones `provideX()` propias para centralizar lógica.  
+- **Componentes standalone con dependencias específicas**: aislar configuraciones sin afectar al resto de la app.  
+
+
