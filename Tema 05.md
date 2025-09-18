@@ -608,3 +608,125 @@ formChanges$.pipe(
 - **Reactividad declarativa**: los Signals permiten reflejar el estado en la UI sin suscripciones manuales.  
 - **Sincronización bidireccional**: `toSignal` y `toObservable` facilitan el intercambio entre ambos mundos.  
 - **Escalabilidad**: ideal para formularios enterprise que combinan datos locales y remotos.  
+
+## 5.6 Ejemplos prácticos de formularios enterprise con lógica avanzada
+
+En entornos corporativos, los formularios suelen ser **grandes, dinámicos y con reglas de negocio complejas**. Angular 20, con **Typed Forms**, **Signals**, **RxJS** y los **nuevos bloques de control de flujo**, nos permite construir soluciones robustas, escalables y fáciles de mantener.  
+
+A continuación, veremos tres escenarios típicos en proyectos enterprise.
+
+### 5.6.1. Formulario de registro con validaciones condicionales
+
+**Caso de uso:**  
+Un formulario de registro donde ciertos campos aparecen o se validan solo si el usuario selecciona determinadas opciones (ej. empresa vs. particular).
+
+```ts
+form = new FormGroup({
+  userType: new FormControl<'individual' | 'company'>('individual', { nonNullable: true }),
+  companyName: new FormControl('', { nonNullable: true }),
+  vatNumber: new FormControl('', { nonNullable: true })
+});
+
+// Signal derivado para activar/desactivar validaciones
+isCompany = computed(() => this.form.controls.userType.value === 'company');
+
+constructor() {
+  effect(() => {
+    if (this.isCompany()) {
+      this.form.controls.companyName.addValidators([Validators.required]);
+      this.form.controls.vatNumber.addValidators([Validators.required]);
+    } else {
+      this.form.controls.companyName.clearValidators();
+      this.form.controls.vatNumber.clearValidators();
+    }
+    this.form.controls.companyName.updateValueAndValidity();
+    this.form.controls.vatNumber.updateValueAndValidity();
+  });
+}
+```
+
+En la plantilla:
+
+```html
+<select formControlName="userType">
+  <option value="individual">Particular</option>
+  <option value="company">Empresa</option>
+</select>
+
+@if (isCompany()) {
+  <input formControlName="companyName" placeholder="Nombre de la empresa" />
+  <input formControlName="vatNumber" placeholder="NIF/CIF" />
+}
+```
+
+👉 Aquí vemos cómo **Signals** permiten activar validaciones dinámicas y mostrar campos condicionales de forma declarativa.
+
+### 5.6.2. Formulario dinámico con arrays de controles
+
+**Caso de uso:**  
+Un formulario de pedidos donde el usuario puede añadir o eliminar productos dinámicamente.
+
+```ts
+form = new FormGroup({
+  customer: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+  items: new FormArray<FormGroup<{
+    product: FormControl<string>;
+    quantity: FormControl<number>;
+  }>>([])
+});
+
+// Método para añadir un producto
+addItem() {
+  this.form.controls.items.push(new FormGroup({
+    product: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    quantity: new FormControl(1, { nonNullable: true, validators: [Validators.min(1)] })
+  }));
+}
+```
+
+En la plantilla:
+
+```html
+<input formControlName="customer" placeholder="Cliente" />
+
+@for (item of form.controls.items.controls; track $index) {
+  <div>
+    <input [formControl]="item.controls.product" placeholder="Producto" />
+    <input type="number" [formControl]="item.controls.quantity" />
+    <button (click)="form.controls.items.removeAt($index)">Eliminar</button>
+  </div>
+}
+
+<button (click)="addItem()">Añadir producto</button>
+```
+
+👉 Con `@for` y Typed Forms, la gestión de listas dinámicas es más clara y segura.
+
+### 5.6.3. Formulario con sincronización en tiempo real (RxJS + Signals)
+
+**Caso de uso:**  
+Un formulario de perfil que se sincroniza automáticamente con el backend cada vez que cambia.
+
+```ts
+import { toObservable } from '@angular/core/rxjs-interop';
+import { switchMap } from 'rxjs/operators';
+
+form = new FormGroup({
+  name: new FormControl('', { nonNullable: true }),
+  email: new FormControl('', { nonNullable: true, validators: [Validators.email] })
+});
+
+constructor(private http: HttpClient) {
+  // Convertimos valueChanges en Observable
+  const formChanges$ = toObservable(this.form.valueChanges);
+
+  formChanges$.pipe(
+    switchMap(value => this.http.post('/api/profile/update', value))
+  ).subscribe();
+}
+```
+
+👉 Aquí, **RxJS** maneja la asincronía y la comunicación con el servidor, mientras que **Signals** pueden usarse para reflejar estados de carga o éxito en la UI.
+
+## 5.7 Buenas prácticas y estrategias de migración para equipos grandes
+
