@@ -430,3 +430,82 @@ export class FeatureComponent {
 - **Evita duplicados**: recuerda que cada `new InjectionToken()` crea un identificador único; si lo defines en varios archivos, Angular los tratará como tokens distintos.  
 
 
+## 6.5. Array Providers y View Providers en escenarios complejos
+
+En Angular, los **providers** son la base del sistema de inyección de dependencias: le indican al framework cómo crear y entregar instancias de servicios. Hasta aquí, todo claro. Pero en aplicaciones enterprise, con jerarquías de componentes complejas y servicios que deben comportarse de manera distinta según el contexto, necesitamos herramientas más avanzadas.  
+
+Dos de esas herramientas son los **Array Providers** y los **View Providers**. Ambos permiten un control más fino sobre qué servicios se inyectan y dónde, resolviendo problemas que aparecen en escenarios reales de gran escala.
+
+### 6.5.1. Array Providers
+
+Un **Array Provider** es una forma de declarar múltiples implementaciones para un mismo token de inyección. En lugar de sobrescribir el valor anterior, Angular acumula todas las instancias en un **array** y las inyecta juntas.
+
+Esto se logra con la propiedad `multi: true`.
+
+### Ejemplo: múltiples interceptores de HTTP
+
+```ts
+import { HTTP_INTERCEPTORS } from '@angular/common/http';
+import { AuthInterceptor } from './auth.interceptor';
+import { LoggingInterceptor } from './logging.interceptor';
+
+export const appProviders = [
+  { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
+  { provide: HTTP_INTERCEPTORS, useClass: LoggingInterceptor, multi: true }
+];
+```
+
+👉 Aquí, cuando Angular resuelva `HTTP_INTERCEPTORS`, inyectará un **array con ambos interceptores**. Esto permite encadenar lógica de autenticación, logging, cacheo, etc., sin que una implementación sobrescriba a la otra.
+
+### Escenarios típicos
+- Interceptores de HTTP.  
+- Estrategias de logging múltiples.  
+- Plugins o extensiones que deben coexistir.  
+
+### 6.5.2. View Providers
+
+Los **View Providers** son una variante de los `providers` que se declaran en un componente, pero con un alcance más restringido: **solo están disponibles para la vista del componente, no para sus proyecciones de contenido (ng-content)**.
+
+Esto es clave cuando queremos que un servicio se use dentro del propio componente y sus hijos internos, pero no se filtre hacia componentes que se proyectan en él.
+
+### Ejemplo: servicio de control interno
+
+```ts
+import { Component } from '@angular/core';
+import { LoggerService } from './logger.service';
+
+@Component({
+  selector: 'app-panel',
+  template: `
+    <h2>Panel</h2>
+    <ng-content></ng-content>
+  `,
+  viewProviders: [LoggerService]
+})
+export class PanelComponent {}
+```
+
+- Si un componente hijo declarado dentro de la plantilla de `PanelComponent` inyecta `LoggerService`, recibirá la instancia definida en `viewProviders`.  
+- Pero si un componente externo se proyecta dentro de `<ng-content>`, no tendrá acceso a ese `LoggerService`.  
+
+👉 Esto evita fugas de dependencias y mantiene la encapsulación del componente.
+
+### 6.5.3. Escenarios complejos donde brillan
+
+#### 🔹 Plugins y extensiones con Array Providers
+En aplicaciones grandes, es común tener un sistema de **plugins** donde cada módulo aporta su propia lógica (ej. validadores, interceptores, estrategias de cache). Con `multi: true`, todos se acumulan en un array y Angular los ejecuta en orden.
+
+#### 🔹 Encapsulación estricta con View Providers
+Imagina un componente de librería que expone un API pública, pero que internamente necesita un servicio auxiliar. Si usáramos `providers`, ese servicio podría filtrarse a componentes proyectados, generando comportamientos inesperados. Con `viewProviders`, garantizamos que ese servicio solo se use dentro de la vista interna.
+
+#### 🔹 Formularios avanzados
+En formularios reactivos, Angular usa `viewProviders` para inyectar directivas como `NgControl` y evitar conflictos entre controles internos y externos.
+
+### 6.5.4. Buenas prácticas
+
+- **Usa Array Providers solo cuando realmente necesites múltiples instancias**. Si no añades `multi: true`, el último provider sobrescribirá a los anteriores.  
+- **Prefiere View Providers para servicios internos** que no deben ser visibles desde fuera del componente.  
+- **Documenta el orden de ejecución** en Array Providers (ej. interceptores), ya que puede afectar al resultado final.  
+- **Combínalos con InjectionTokens** para mayor claridad y seguridad en configuraciones complejas.  
+
+
