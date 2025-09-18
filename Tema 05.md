@@ -225,3 +225,168 @@ export class RegisterComponent {
 - **Mantén la tipificación estricta**: define interfaces para tus formularios y evita `any`.  
 - **Migra progresivamente**: puedes empezar con formularios tipados y añadir Signals poco a poco.  
 
+## 5.3 Validaciones síncronas y asíncronas aplicadas con Signals
+
+En Angular 20, los **Signals** no solo sirven para gestionar el estado de forma reactiva, sino que también se integran de manera natural con los **formularios tipados** y sus validaciones. Esto abre la puerta a un modelo de validación más **declarativo, predecible y seguro**, donde las reglas de negocio se expresan como funciones puras y los resultados se propagan automáticamente a la interfaz de usuario.
+
+### 5.3.1. Validaciones síncronas con Signals
+
+Las validaciones síncronas son aquellas que pueden evaluarse inmediatamente, sin necesidad de esperar a un proceso externo (como una petición HTTP). Ejemplos típicos:  
+- Campos obligatorios.  
+- Longitud mínima o máxima.  
+- Comparación entre dos valores (ej. contraseña y confirmación).  
+
+#### Ejemplo: validador de edad mínima
+
+```ts
+import { FormControl } from '@angular/forms';
+import { signal, effect } from '@angular/core';
+
+function minAgeValidator(min: number) {
+  return (control: FormControl<number>) => {
+    return control.value >= min ? null : { minAge: true };
+  };
+}
+
+const ageControl = new FormControl(0, { 
+  nonNullable: true, 
+  validators: [minAgeValidator(18)] 
+});
+
+// Signal derivado del estado de validación
+const isAdult = signal(ageControl.valid);
+
+ageControl.valueChanges.subscribe(value => {
+  isAdult.set(ageControl.valid);
+});
+
+// Reactividad declarativa
+effect(() => {
+  console.log(isAdult() ? 'Edad válida' : 'Debe ser mayor de edad');
+});
+```
+
+👉 Aquí, el Signal `isAdult` refleja automáticamente el estado de validación del control, y cualquier cambio en el valor dispara la reevaluación.
+
+### 5.3.2. Validaciones asíncronas con Signals
+
+Las validaciones asíncronas requieren consultar una fuente externa, como un servicio HTTP o una base de datos. Ejemplo clásico: comprobar si un nombre de usuario ya existe.  
+
+En Angular 20, podemos combinar **Observables** con **Signals** usando el helper `toSignal()`, lo que nos permite integrar validaciones asíncronas en el flujo reactivo sin necesidad de suscripciones manuales.
+
+#### Ejemplo: validador de nombre de usuario único
+
+```ts
+import { Component, signal, effect, inject } from '@angular/core';
+import { FormControl, FormGroup, Validators } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { toSignal } from '@angular/core/rxjs-interop';
+
+interface RegisterForm {
+  username: FormControl<string>;
+}
+
+@Component({
+  selector: 'app-register',
+  standalone: true,
+  template: `
+    <form [formGroup]="form">
+      <label>
+        Nombre de usuario:
+        <input formControlName="username" />
+      </label>
+
+      <p *ngIf="usernameControl.pending">Comprobando disponibilidad...</p>
+      <p *ngIf="!isAvailable()">El nombre de usuario ya está en uso</p>
+      <p *ngIf="isAvailable()">Nombre de usuario disponible ✅</p>
+
+      <button [disabled]="!form.valid">Registrar</button>
+    </form>
+  `
+})
+export class RegisterComponent {
+  private http = inject(HttpClient);
+
+  form = new FormGroup<RegisterForm>({
+    username: new FormControl<string>('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.minLength(3)],
+      asyncValidators: [this.usernameAvailableValidator()],
+      updateOn: 'blur'
+    })
+  });
+
+  usernameControl = this.form.controls.username;
+
+  // Signal que refleja la disponibilidad (derivado del validador asíncrono)
+  isAvailable = signal(true);
+
+  constructor() {
+    // Creamos un Signal a partir de statusChanges (Observable)
+    const statusSignal = toSignal(this.usernameControl.statusChanges, {
+      initialValue: this.usernameControl.status
+    });
+
+    // Efecto reactivo: cada vez que cambia el estado, actualizamos isAvailable
+    effect(() => {
+      const status = statusSignal();
+      const taken = this.usernameControl.hasError('usernameTaken');
+      this.isAvailable.set(status === 'VALID' && !taken);
+      console.log('isAvailable:', this.isAvailable());
+    });
+  }
+
+  // Validador asíncrono: consulta al backend
+  private usernameAvailableValidator(): AsyncValidatorFn {
+    return (control: AbstractControl): Observable<ValidationErrors | null> => {
+      const value = control.value?.trim();
+      if (!value) return of(null);
+
+      return timer(300).pipe(
+        switchMap(() =>
+          this.http.get<{ available: boolean }>(`/api/users/check/${encodeURIComponent(value)}`)
+        ),
+        map(res => (res.available ? null : { usernameTaken: true })),
+        catchError(() => of(null))
+      );
+    };
+  }
+}
+
+```
+
+#### Qué hace este componente
+
+- **Typed Form**: el `FormControl<string>` garantiza seguridad de tipos.  
+- **AsyncValidator**: sigue devolviendo un `Observable<ValidationErrors | null>`, como exige Angular.  
+- **toSignal()**: convertimos `statusChanges` en un Signal (`statusSignal`).  
+- **Signal derivado (`isAvailable`)**: refleja en tiempo real si el usuario está disponible.  
+- **UI declarativa**: la plantilla consume `isAvailable()` directamente, sin suscripciones manuales.  
+ 
+
+#### Ventajas de este enfoque
+
+- **Reactividad total**: el estado de validación fluye como Signals.  
+- **Menos boilerplate**: no hay `subscribe/unsubscribe` manuales.  
+- **Integración natural con la UI**: la plantilla usa Signals como si fueran propiedades.  
+- **Escalabilidad**: puedes derivar múltiples Signals (ej. `isPending`, `hasErrors`, `errorMessage`) para formularios grandes.  
+  
+
+
+### 5.3.3. Ventajas de usar Signals en validaciones
+
+- **Reactividad declarativa**: no necesitas suscripciones manuales dispersas, los Signals se actualizan automáticamente.  
+- **Menos boilerplate**: se reduce la necesidad de `ngOnDestroy` o `unsubscribe`.  
+- **Integración natural con la UI**: puedes usar los Signals directamente en plantillas (`[disabled]="!isAvailable()"`).  
+- **Escalabilidad**: en formularios grandes, puedes derivar Signals específicos para cada regla de validación.  
+- **Compatibilidad**: puedes seguir usando validadores clásicos, pero ahora con la posibilidad de exponer su estado como Signals.  
+
+### 5.3.4. Buenas prácticas
+
+- **Encapsula validaciones en funciones puras**: facilita su testeo y reutilización.  
+- **Usa Signals derivados para estados de validación**: evita recalcular en múltiples lugares.  
+- **Combina `toSignal()` con validaciones asíncronas**: simplifica la integración con servicios HTTP.  
+- **Muestra feedback inmediato en la UI**: los Signals permiten reflejar estados como `pending`, `valid` o `invalid` en tiempo real.  
+
+## 5.4 Personalización de mensajes de error reactivos y dinámicos
+
