@@ -70,7 +70,7 @@
 
 ---
 
-## 6. Inyección de dependencias y Standalone APIs
+## 6. [Inyección de dependencias y Standalone APIs](Tema%2006.md)
 
 - Introducción a los Standalone APIs y la inyección moderna en Angular 20  
 - Providers funcionales vs providers clásicos: diferencias y casos de uso  
