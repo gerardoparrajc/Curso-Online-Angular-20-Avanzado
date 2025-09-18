@@ -730,3 +730,48 @@ constructor(private http: HttpClient) {
 
 ## 5.7 Buenas prácticas y estrategias de migración para equipos grandes
 
+La adopción de Angular 20 en proyectos enterprise no es solo una cuestión técnica: implica coordinar equipos grandes, mantener la productividad y garantizar que la transición no afecte a la calidad del software. A continuación, se presentan **buenas prácticas y estrategias de migración** que facilitan este proceso.
+
+### 5.7.1. Principios clave de migración
+
+- **Migración incremental**: no intentes actualizar todo de golpe. Angular ofrece herramientas como `ng update` y migraciones automáticas para avanzar paso a paso.  
+- **Compatibilidad progresiva**: Angular 20 mantiene compatibilidad con formularios no tipados y APIs previas, lo que permite migrar gradualmente sin bloquear el desarrollo.  
+- **Soporte extendido**: cada versión cuenta con soporte activo y LTS, lo que da margen para planificar la transición sin prisas.  
+
+### 5.7.2. Buenas prácticas para equipos grandes
+
+#### 🔹 Organización del código
+- **Standalone Components**: adopta componentes, directivas y pipes independientes para reducir la dependencia de NgModules.  
+- **Estructura por funcionalidades**: organiza el código por dominios de negocio (ej. `usuarios/`, `pedidos/`) en lugar de separar por tipo de archivo.  
+- **Uso de monorepos con Nx**: facilita la modularización, la compartición de librerías internas y la optimización de builds en CI/CD.  
+
+#### 🔹 Estrategias de validación y formularios
+- **Typed Forms primero**: prioriza migrar formularios críticos a tipados para reducir errores en producción.  
+- **Signals progresivos**: introduce Signals en validaciones y estados de formularios de forma gradual, manteniendo compatibilidad con Observables.  
+- **Catálogo centralizado de errores**: evita duplicación de mensajes y facilita la internacionalización.  
+
+#### 🔹 Calidad y colaboración
+- **Automatización de pruebas**: integra pruebas unitarias y E2E (Cypress, Playwright) en la pipeline de CI/CD.  
+- **Linting y formateo**: aplica ESLint y Prettier para mantener consistencia en equipos grandes.  
+- **Documentación viva**: mantén guías internas de migración y ejemplos de patrones recomendados.  
+
+### 5.7.3. Estrategias de migración en fases
+
+1. **Preparación**  
+   - Actualizar Node.js y TypeScript a versiones compatibles.  
+   - Limpiar imports obsoletos y APIs deprecated.  
+
+2. **Migración técnica**  
+   - Migrar primero componentes aislados a standalone.  
+   - Adoptar el nuevo control flow (`@if`, `@for`, `@switch`) en plantillas.  
+   - Convertir formularios clave a Typed Forms.  
+
+3. **Optimización**  
+   - Introducir Signals en validaciones y sincronización de datos.  
+   - Refactorizar servicios a `inject()` en lugar de inyección por constructor.  
+   - Implementar lazy loading en rutas para mejorar rendimiento.  
+
+4. **Consolidación**  
+   - Centralizar mensajes de error y validaciones.  
+   - Revisar arquitectura de estado (Signals + RxJS o NgRx).  
+   - Establecer métricas de calidad y rendimiento post-migración.  
