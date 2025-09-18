@@ -390,3 +390,114 @@ export class RegisterComponent {
 
 ## 5.4 Personalización de mensajes de error reactivos y dinámicos
 
+En Angular 20, la gestión de errores en formularios da un salto cualitativo gracias a la combinación de **Typed Forms**, **Signals** y el **nuevo control de flujo en plantillas**.  
+Ya no es necesario llenar la vista de múltiples condiciones con `*ngIf`: ahora podemos centralizar la lógica de errores en **Signals derivados** y mostrarlos de forma **declarativa y dinámica** con `@if` y `@switch`.
+
+### 5.4.1. El problema de los mensajes estáticos
+
+Tradicionalmente, los mensajes de error se escribían así:
+
+```html
+<div *ngIf="control.errors?.required">Campo obligatorio</div>
+<div *ngIf="control.errors?.minlength">Mínimo 6 caracteres</div>
+<div *ngIf="control.errors?.email">Formato inválido</div>
+```
+
+Esto genera **duplicación de código**, poca flexibilidad y plantillas difíciles de mantener.
+
+---
+
+### 5.4.2. Creación de un Signal de error
+
+Para que los mensajes sean **reactivos**, necesitamos que dependan de un Signal. Como `control.errors` no es un Signal, debemos engancharlo a los **observables del control** (`statusChanges`, `valueChanges`) usando `toSignal`.
+
+```ts
+import { computed } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { FormControl } from '@angular/forms';
+
+export function createErrorMessage(control: FormControl<any>) {
+  const statusSig = toSignal(control.statusChanges, { initialValue: control.status });
+  const valueSig = toSignal(control.valueChanges, { initialValue: control.value });
+
+  return computed(() => {
+    // Dependencias explícitas
+    statusSig();
+    valueSig();
+
+    const touched = control.touched || control.dirty;
+    const errors = control.errors;
+
+    if (!touched || !errors) return '';
+
+    if (errors['required']) return 'Este campo es obligatorio';
+    if (errors['minlength']) return `Mínimo ${errors['minlength'].requiredLength} caracteres`;
+    if (errors['email']) return 'Formato de correo inválido';
+    if (errors['usernameTaken']) return 'El nombre de usuario ya está en uso';
+
+    return '';
+  });
+}
+```
+
+### 5.4.3. Uso en un componente
+
+```ts
+import { Component } from '@angular/core';
+import { FormControl, Validators } from '@angular/forms';
+import { createErrorMessage } from './error-messages.helper';
+
+@Component({
+  selector: 'app-username',
+  standalone: true,
+  templateUrl: './username.component.html'
+})
+export class UsernameComponent {
+  username = new FormControl('', {
+    nonNullable: true,
+    validators: [Validators.required, Validators.minLength(3)]
+  });
+
+  usernameError = createErrorMessage(this.username);
+}
+```
+
+### 5.4.4. Plantilla con nuevos bloques de control
+
+```html
+<input formControlName="username" placeholder="Nombre de usuario" />
+
+@if (usernameError()) {
+  <p class="error">{{ usernameError() }}</p>
+}
+```
+
+👉 El bloque `@if` muestra el mensaje solo cuando el Signal `usernameError()` devuelve un texto distinto de vacío.
+
+### 5.4.5. Ejemplo con `@switch` para múltiples errores
+
+Si queremos mostrar mensajes distintos según el tipo de error, podemos usar `@switch`:
+
+```html
+<input formControlName="email" placeholder="Correo electrónico" />
+
+@switch (true) {
+  @case (emailCtrl.touched && emailCtrl.hasError('required')) {
+    <p class="error">El correo es obligatorio</p>
+  }
+  @case (emailCtrl.touched && emailCtrl.hasError('email')) {
+    <p class="error">Formato de correo inválido</p>
+  }
+  @default {
+    <!-- Sin errores -->
+  }
+}
+```
+
+### 5.4.6. Ventajas de este enfoque
+
+- **Reactividad real**: los mensajes cambian automáticamente al variar el estado del control.  
+- **Plantillas más limpias**: menos condiciones repetidas, más expresividad.  
+- **Centralización**: la lógica de errores se concentra en un helper o servicio.  
+- **Escalabilidad**: fácil de extender a catálogos de mensajes e internacionalización.  
+- **Compatibilidad**: funciona con Typed Forms, validadores síncronos y asíncronos.  
