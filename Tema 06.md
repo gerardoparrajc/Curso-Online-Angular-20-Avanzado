@@ -774,3 +774,88 @@ export class EventBus {
 
 👉 Cualquier microfrontend puede inyectar `EventBus` y emitir/escuchar eventos, sin acoplarse directamente a otros módulos.
 
+
+## 6.8. Estrategias de troubleshooting en jerarquías de inyección profundas
+
+La **jerarquía de inyectores** en Angular es poderosa, pero también puede ser fuente de errores difíciles de rastrear. Cuando un servicio no se resuelve como esperábamos, o cuando aparecen instancias duplicadas, es señal de que algo en la cadena de inyección no está funcionando como debería.  
+
+En esta sección veremos **estrategias prácticas de diagnóstico y resolución** para este tipo de problemas.
+
+### 6.8.1. Comprender la jerarquía de inyectores
+
+Angular mantiene distintos niveles de inyectores:  
+- **EnvironmentInjector (raíz de la aplicación)**: contiene los servicios globales (`providedIn: 'root'`).  
+- **ElementInjector (por componente/directiva)**: cada componente puede declarar sus propios `providers`.  
+- **Inyectores de rutas**: cada ruta puede tener sus propios servicios en `providers`.  
+
+Cuando un componente solicita un servicio, Angular busca en su **ElementInjector** y, si no lo encuentra, sube hacia el padre hasta llegar al `EnvironmentInjector`. Si no lo encuentra en ningún nivel, lanza un error `NullInjectorError`.
+
+### 6.8.2. Errores comunes en jerarquías profundas
+
+- **`NullInjectorError`**: Angular no encuentra un provider para el token solicitado.  
+- **Instancias duplicadas**: el mismo servicio se declara en varios niveles, generando múltiples instancias en lugar de una compartida.  
+- **Confusión con modificadores** (`@Self`, `@SkipSelf`, `@Optional`): usados incorrectamente, pueden provocar que Angular busque en el inyector equivocado o devuelva `null`.  
+- **Uso indebido de `inject()` fuera de contexto**: recordemos que `inject()` solo funciona dentro de un contexto de inyección válido.  
+
+### 6.8.3. Estrategias de diagnóstico
+
+#### 🔹 1. Revisar el alcance del servicio
+- Verifica si el servicio está marcado con `providedIn: 'root'` o si se está declarando en `providers` de un componente.  
+- Si aparece más de una instancia, probablemente se está declarando en varios niveles.  
+
+#### 🔹 2. Usar `console.log` en el constructor del servicio
+Una técnica simple pero efectiva:  
+```ts
+@Injectable({ providedIn: 'root' })
+export class LoggerService {
+  constructor() {
+    console.log('LoggerService instanciado');
+  }
+}
+```
+Si ves múltiples logs, significa que el servicio se está creando más de una vez (probablemente por providers locales).
+
+#### 🔹 3. Aplicar modificadores de inyección
+- Usa `@Self()` para confirmar si el servicio está realmente en el inyector local.  
+- Usa `@SkipSelf()` para forzar a Angular a buscar en el padre.  
+- Usa `@Optional()` para evitar errores cuando un servicio puede no estar presente.  
+
+#### 🔹 4. Verificar el contexto de `inject()`
+Si usas `inject()`, asegúrate de que se ejecute en un contexto válido: constructor, inicialización de propiedad, factoría de provider o dentro de `runInInjectionContext()`.
+
+#### 🔹 5. Revisar la jerarquía de componentes
+En aplicaciones grandes, es útil **mapear el árbol de componentes** y anotar dónde se declaran los providers. Esto ayuda a entender por qué un servicio se resuelve en un nivel y no en otro.
+
+### 6.8.4. Estrategias de resolución
+
+- **Centralizar servicios globales** en `providedIn: 'root'` para evitar duplicados.  
+- **Usar providers locales solo cuando sea necesario** (ej. un servicio que debe tener estado aislado por componente).  
+- **Evitar declarar el mismo servicio en múltiples niveles** salvo que se busque explícitamente instancias distintas.  
+- **Crear `InjectionToken`s para configuraciones** en lugar de usar servicios duplicados.  
+- **Documentar la jerarquía de inyección** en proyectos grandes para que todo el equipo entienda dónde se proveen los servicios.  
+
+### 6.8.5. Ejemplo práctico
+
+```ts
+@Component({
+  selector: 'app-parent',
+  template: `<app-child></app-child>`,
+  providers: [LoggerService] // instancia propia
+})
+export class ParentComponent {}
+
+@Component({
+  selector: 'app-child',
+  template: `<p>Child works!</p>`
+})
+export class ChildComponent {
+  constructor(
+    @Self() private localLogger: LoggerService,       // busca en el hijo
+    @SkipSelf() private parentLogger: LoggerService,  // busca en el padre
+    @Optional() private maybeAnalytics?: AnalyticsService // puede ser null
+  ) {}
+}
+```
+
+👉 Aquí podemos diagnosticar fácilmente qué instancia se está inyectando en cada nivel y evitar confusiones.
+
