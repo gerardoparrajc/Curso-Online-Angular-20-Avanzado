@@ -85,7 +85,7 @@
 
 ---
 
-## 7. Routing avanzado en Angular 20
+## 7. [Routing avanzado en Angular 20](Tema%2007.md)
 
 - Configuración moderna de rutas con `provideRouter` y Standalone Components  
 - Lazy loading optimizado con `loadChildren` y rutas dinámicas  
