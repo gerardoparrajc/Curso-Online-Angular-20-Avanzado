@@ -100,7 +100,7 @@
 
 ---
 
-## 8. Optimización de recursos e imágenes
+## 8. [Optimización de recursos e imágenes](Tema%2008.md)
 
 - Introducción al nuevo `NgOptimizedImage` en Angular 20  
 - Configuración básica y avanzada de `NgOptimizedImage`  
@@ -115,7 +115,7 @@
 
 ---
 
-## 9. SSR, Prerender e Hydration en Angular 20
+## 9. [SSR, Prerender e Hydration en Angular 20](Tema%2009.md)
 
 - Fundamentos de Server Side Rendering en Angular  
 - Configuración inicial de SSR con Angular CLI y Standalone Components  
@@ -130,7 +130,7 @@
 
 ---
 
-## 10. Testing moderno en Angular 20
+## 10. [Testing moderno en Angular 20](Tema%2010.md)
 
 - Introducción a las estrategias de testing modernas en Angular  
 - Unit testing con Jest: configuración y ventajas frente a Karma/Jasmine  
