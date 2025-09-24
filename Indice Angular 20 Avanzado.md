@@ -144,7 +144,7 @@
 
 ---
 
-## 11. Arquitecturas escalables con Angular
+## 11. [Arquitecturas escalables con Angular](Tema%2011.md)
 
 - Introducción a Angular Workspaces para proyectos multi-app  
 - Uso de librerías compartidas entre diferentes aplicaciones Angular  
