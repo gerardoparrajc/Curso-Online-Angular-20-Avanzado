@@ -155,7 +155,7 @@
 
 ---
 
-## 12. PWAs y APIs web avanzadas
+## 12. [PWAs y APIs web avanzadas](Tema%2012.md)
 
 - Introducción y fundamentos de las Progressive Web Apps (PWAs) en Angular  
 - Configuración de Service Workers y estrategias de caché para offline-first  
