@@ -170,7 +170,7 @@
 
 ---
 
-## 13. Estado global con NGRX en Angular 20
+## 13. [Estado global con NGRX en Angular 20](Tema%2013.md)
 
 - Introducción a NGRX y su relación con el patrón Redux  
 - Ventajas y desventajas del uso de NGRX frente a Signals o servicios locales  
@@ -185,7 +185,7 @@
 
 ---
 
-## 14. Internacionalización (i18n) en Angular 20
+## 14. [Internacionalización (i18n) en Angular 20](Tema%2014.md)
 
 - Configuración inicial de internacionalización (i18n) en Angular  
 - Generación de archivos de traducción con Angular CLI  
