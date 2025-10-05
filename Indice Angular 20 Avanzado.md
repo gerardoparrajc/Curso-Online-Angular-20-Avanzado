@@ -200,7 +200,7 @@
 
 ---
 
-## 15. Creación de librerías y documentación avanzada en Angular 20
+## 15. [Creación de librerías y documentación avanzada en Angular 20](Tema%2015.md)
 
 - Creación de librerías con Angular CLI y estructura recomendada  
 - Configuración de un Angular Workspace para librerías reutilizables  
@@ -215,7 +215,7 @@
 
 ---
 
-## 16. Buenas prácticas y mantenimiento en Angular 20
+## 16. [Buenas prácticas y mantenimiento en Angular 20](Tema%2016.md)
 
 - Uso de herramientas de IA (Copilot, Cursor) para generación de código y documentación  
 - Seguridad en Angular: protección contra XSS, CSRF y vulnerabilidades comunes  
