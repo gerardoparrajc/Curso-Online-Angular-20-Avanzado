@@ -229,7 +229,7 @@
 
 ---
 
-## 17. Migración de Angular 17 a Angular 20
+## 17. [Migración de Angular 17 a Angular 20](Tema%2017.md)
 
 - Recordatorio de las diferencias clave entre Angular 17 y Angular 20  
 - Migración de sintaxis de control flow: de `*ngIf`/`*ngFor` a `@if`/`@for`  
