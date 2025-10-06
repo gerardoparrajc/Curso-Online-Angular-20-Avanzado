@@ -244,7 +244,7 @@
 
 ---
 
-## 18. Proyecto final
+## 18. [Proyecto final](Tema%2018.md)
 
 - Selección de un caso de uso avanzado (e.g. aplicación SaaS o e-commerce modular)  
 - Diseño e implementación con Standalone Components como base arquitectónica  
