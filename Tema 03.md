@@ -691,8 +691,7 @@ La solución es **aislar el Signal** para que solo afecte a la parte necesaria d
 ```ts
 @Component({
   selector: 'app-click-counter',
-  template: `<button (click)="increment()">Clics: {{ clickCount() }}</button>`,
-  standalone: true
+  template: `<button (click)="increment()">Clics: {{ clickCount() }}</button>`
 })
 export class ClickCounterComponent {
   clickCount = clickCount;

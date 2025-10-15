@@ -5,13 +5,13 @@
 En el ecosistema actual de desarrollo, la **inteligencia artificial** se ha convertido en un aliado estratégico para los equipos de software. Herramientas como **Copilot** y **Cursor** permiten acelerar la escritura de código, mejorar la calidad de la documentación y mantener proyectos complejos como los de **Angular 20** de forma más eficiente.  
 Lejos de sustituir al desarrollador, estas herramientas actúan como un **asistente inteligente**, capaz de sugerir soluciones, detectar patrones y proponer mejoras en tiempo real.
 
-### 16.1.1. Generación de código asistida
+### 16.1.1. Generación de código asistida y buenas prácticas modernas
 
 - **Sugerencias contextuales**: al escribir un componente, servicio o directiva, la IA puede autocompletar métodos, estructuras de datos o patrones comunes de Angular (ej. `signals`, `inject`, `standalone components`).  
 - **Plantillas repetitivas**: creación rápida de formularios reactivos, interceptores HTTP, guards de rutas o configuraciones de SSR.  
 - **Buenas prácticas integradas**: las sugerencias suelen estar alineadas con las convenciones modernas de Angular 20, evitando errores comunes.  
 
-Ejemplo: al comenzar a escribir un `FormGroup` para un formulario de login, la IA puede sugerir automáticamente la estructura completa con validaciones incluidas.
+Ejemplo: al comenzar a escribir un formulario de login, la IA puede sugerir automáticamente la estructura completa usando signals y validaciones tipadas.
 
 ### 16.1.2. Documentación y comentarios
 
@@ -24,8 +24,8 @@ Ejemplo: al escribir un servicio de autenticación, la IA puede generar un bloqu
 ### 16.1.3. Refactorización y mantenimiento
 
 - **Detección de redundancias**: sugerencias para extraer lógica repetida en servicios compartidos.  
-- **Migraciones de versión**: ayuda a adaptar código a nuevas APIs de Angular 20 (ej. migrar de `NgModules` a `standalone`).  
-- **Optimización de rendimiento**: recomendaciones sobre lazy loading, signals o uso de `ChangeDetectionStrategy.OnPush`.  
+- **Migraciones de versión**: ayuda a adaptar código a nuevas APIs de Angular 20 (ej. migrar de `NgModules` a standalone components y signals).  
+- **Optimización de rendimiento**: recomendaciones sobre lazy loading, signals, SSR/hydration y uso de `ChangeDetectionStrategy.OnPush`.  
 
 ### 16.1.4. Integración en el flujo de trabajo
 
@@ -38,8 +38,7 @@ Ejemplo: al escribir un servicio de autenticación, la IA puede generar un bloqu
 - **Validar siempre las sugerencias**: la IA acelera, pero no sustituye el criterio del desarrollador.  
 - **Usar la IA como apoyo pedagógico**: especialmente útil para explicar patrones avanzados a nuevos miembros del equipo.  
 - **Mantener consistencia**: revisar que las sugerencias respeten el estilo de código y convenciones del proyecto.  
-- **Combinar con testing**: toda generación automática debe estar respaldada por pruebas unitarias e integradas.  
-
+- **Combinar con testing**: toda generación automática debe estar respaldada por pruebas unitarias (Jest) e integradas (Cypress/Playwright).  
 
 ## 16.2. Seguridad en Angular: protección contra XSS, CSRF y vulnerabilidades comunes
 
@@ -70,21 +69,9 @@ y la aplicación lo muestra sin sanitizar, ese script se ejecutará en el navega
 
 #### Buenas prácticas contra XSS
 - **Evita `[innerHTML]` siempre que sea posible**. Prefiere bindings normales.  
-- **Nunca uses `bypassSecurityTrust...` con datos de usuario**. Solo en casos muy controlados (ej. contenido estático de confianza).  
-- **Valida y limpia datos en el backend**: Angular protege en el cliente, pero el servidor también debe filtrar entradas.  
-- **Configura Content Security Policy (CSP)**: limita qué scripts pueden ejecutarse en tu aplicación.  
-
-Ejemplo seguro:
-
-```html
-<p>{{ comentario }}</p> <!-- Angular lo escapa -->
-```
-
-Ejemplo inseguro:
-
-```html
-<div [innerHTML]="comentario"></div> <!-- riesgo de XSS -->
-```
+- **Nunca uses `bypassSecurityTrust...` con datos de usuario o dinámicos**. Solo en casos muy controlados (ej. contenido estático de confianza).  
+- **Valida y limpia datos en el backend**: Angular protege en el cliente, pero el servidor también debe filtrar entradas y validar tokens/permisos.  
+- **Configura Content Security Policy (CSP)**: limita qué scripts pueden ejecutarse en tu aplicación. Usa librerías como `helmet` en el backend para reforzar cabeceras HTTP.  
 
 ### 16.2.2. Protección contra CSRF (Cross-Site Request Forgery)
 
@@ -116,7 +103,7 @@ bootstrapApplication(AppComponent, {
 #### Buenas prácticas contra CSRF
 - **Configura el backend** para emitir y validar tokens CSRF.  
 - **Usa cookies seguras** (`HttpOnly`, `SameSite=Strict`) para reducir riesgos.  
-- **No confíes solo en Angular**: la validación final siempre debe estar en el servidor.  
+- **No confíes solo en Angular**: la validación final siempre debe estar en el servidor y debe validar tokens y permisos en cada petición.
 
 ### 16.2.3. Otras vulnerabilidades comunes
 
@@ -201,7 +188,9 @@ Ejemplo de interceptor:
 import { HttpInterceptorFn } from '@angular/common/http';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const token = localStorage.getItem('access_token');
+  // Preferir cookies HttpOnly para tokens en producción
+  // Solo usar localStorage en entornos no críticos
+  const token = /* obtener token de cookie segura */;
   if (token) {
     req = req.clone({
       setHeaders: { Authorization: `Bearer ${token}` }
@@ -324,8 +313,9 @@ Los **atributos ARIA (Accessible Rich Internet Applications)** complementan el H
 
 - **Usar primero HTML semántico** (`<button>`, `<nav>`, `<header>`) antes de recurrir a ARIA.  
 - **No duplicar roles**: si un elemento ya tiene semántica nativa, no añadas un `role` redundante.  
-- **Mantener sincronizados los estados** (`aria-expanded`, `aria-checked`) con el estado real del componente.  
+- **Mantener sincronizados los estados** (`aria-expanded`, `aria-checked`) con el estado real del componente (usa signals para sincronización reactiva).  
 - **Etiquetas descriptivas**: usar `aria-label` o `aria-labelledby` para dar contexto.  
+- **Angular DevTools**: puede ayudar a detectar problemas de accesibilidad en componentes.
 
 ### 16.4.4. Pruebas automatizadas con axe-core
 
@@ -358,13 +348,18 @@ describe('Accesibilidad', () => {
 });
 ```
 
+Ejemplo de integración en CI/CD:
+
+```yaml
+- name: Pruebas de accesibilidad
+  run: npm run test:a11y
+```
+
 ### 16.4.5. Estrategia Enterprise de accesibilidad
-
-- **Integrar axe-core en CI/CD**: cada build debe ejecutar pruebas de accesibilidad.  
+- **Integrar axe-core en CI/CD**: cada build debe ejecutar pruebas de accesibilidad y auditoría de seguridad.  
 - **Auditorías manuales**: combinar pruebas automáticas con revisiones manuales usando lectores de pantalla (NVDA, VoiceOver).  
-- **Formación del equipo**: todos los desarrolladores deben conocer las pautas WCAG.  
+- **Formación del equipo**: todos los desarrolladores deben conocer las pautas WCAG y el proceso de onboarding debe incluir accesibilidad y automatización.  
 - **Diseño inclusivo desde el inicio**: no “parchear” accesibilidad al final, sino integrarla en el diseño y desarrollo.  
-
 
 ## 16.5. Estrategias de refactorización segura en aplicaciones grandes
 
@@ -383,10 +378,8 @@ Por eso, en Angular 20 debemos aplicar **estrategias de refactorización segura*
 
 - **Auditoría de dependencias**: identificar módulos, servicios y componentes más acoplados.  
 - **Cobertura de tests**: asegurar que las áreas críticas tienen pruebas unitarias e integradas.  
-- **Feature flags**: activar cambios de forma progresiva en producción.  
+- **Feature flags**: activar cambios de forma progresiva en producción. Se pueden gestionar con librerías como `@ngxs-labs/feature-flags` o soluciones personalizadas usando signals.
 - **Planificación por fases**: dividir la refactorización en entregas pequeñas y medibles.  
-
-Ejemplo: antes de migrar un módulo de `NgModules` a **standalone components**, primero aseguramos que sus tests cubren al menos los flujos principales.
 
 ### 16.5.3. Estrategias prácticas en Angular 20
 
@@ -419,20 +412,12 @@ Ejemplo: antes de migrar un módulo de `NgModules` a **standalone components**, 
 
 ### 16.5.5. Testing como red de seguridad
 
-- **Unit tests**: aseguran que cada pieza sigue funcionando tras el cambio.  
-- **Integration tests**: validan la interacción entre componentes y servicios.  
-- **E2E tests**: garantizan que los flujos críticos del usuario no se rompen.  
-- **Pruebas de regresión visual**: detectar cambios inesperados en la UI.  
+**Unit tests (Jest)**: aseguran que cada pieza sigue funcionando tras el cambio.  
+**Integration tests**: validan la interacción entre componentes y servicios.  
+**E2E tests (Cypress/Playwright)**: garantizan que los flujos críticos del usuario no se rompen.  
+**Pruebas de regresión visual**: detectar cambios inesperados en la UI.  
 
 Ejemplo: antes de refactorizar un `AuthService`, escribe tests que validen login, logout y refresh de tokens. Así, cualquier error se detectará inmediatamente.
-
-### 16.5.6. Buenas prácticas de equipo
-
-- **Refactorizar como parte del ciclo de vida**: no esperar a que el código “huela mal”, sino mejorar continuamente.  
-- **Code reviews enfocados en seguridad**: validar que la refactorización no introduce vulnerabilidades.  
-- **Documentar decisiones**: explicar por qué se migró a Signals, por qué se eliminó un módulo, etc.  
-- **Comunicación entre equipos**: en proyectos Enterprise, un cambio en un servicio compartido puede afectar a múltiples aplicaciones.  
-
 
 ## 16.6. Versionado semántico y gestión de dependencias con NPM y Renovate
 
@@ -483,7 +468,7 @@ Funciona creando **pull requests automáticas** cuando detecta nuevas versiones 
 
 ### 16.6.4. Ejemplo de configuración de Renovate
 
-Archivo `renovate.json`:
+Archivo `renovate.json` (añade reglas para dependencias críticas como NGRX, Angular DevTools y librerías de seguridad):
 
 ```json
 {
@@ -498,6 +483,19 @@ Archivo `renovate.json`:
       "matchPackagePatterns": ["rxjs"],
       "groupName": "RxJS updates",
       "automerge": true
+    },
+    {
+      "matchPackagePatterns": ["@ngrx/*"],
+      "groupName": "NGRX updates",
+      "schedule": ["before 6am on tuesday"]
+    },
+    {
+      "matchPackagePatterns": ["angular-devtools"],
+      "enabled": true
+    },
+    {
+      "matchPackagePatterns": ["helmet"],
+      "enabled": true
     }
   ]
 }
@@ -505,15 +503,8 @@ Archivo `renovate.json`:
 
 - Agrupa todas las actualizaciones de Angular en un solo PR semanal.  
 - Permite que RxJS se actualice automáticamente en parches y versiones menores.  
-
-### 16.6.5. Estrategia Enterprise
-
-En proyectos grandes:
-- **Pipeline de CI/CD con Renovate**: cada PR de actualización debe pasar por tests automáticos.  
-- **Revisiones humanas para MAJOR updates**: nunca hacer merge automático de cambios incompatibles.  
-- **Documentar dependencias críticas**: Angular, RxJS, NgRx, librerías de UI.  
-- **Auditorías periódicas**: combinar Renovate con `npm audit` para detectar vulnerabilidades.  
-
+- Agrupa actualizaciones de NGRX en un PR separado.  
+- Habilita actualizaciones automáticas para Angular DevTools y helmet.
 
 ## 16.7. Integración de CI/CD con GitHub Actions y pipelines automatizados
 
@@ -597,41 +588,26 @@ En entornos Enterprise, en lugar de GitHub Pages, se suele desplegar a **servido
 ### 16.7.4. Buenas prácticas en pipelines
 
 - **Separar jobs**: build, test, lint, deploy deben ser pasos independientes.  
-- **Cache de dependencias**: usar `actions/cache` para acelerar builds.  
+- **Cache de dependencias**: usar `actions/cache` para acelerar builds y `actions/setup-node` con versiones LTS.  
 - **Variables de entorno y secretos**: nunca exponer claves en el YAML, usar `secrets` de GitHub.  
 - **Branch protection**: exigir que el pipeline pase antes de permitir merges a `main`.  
 - **Testing E2E en CI**: integrar Cypress o Playwright para validar flujos críticos.  
 
-### 16.7.5. Estrategia Enterprise
-
-En proyectos grandes:
-- **Pipelines multi-entorno**: desarrollo → staging → producción.  
-- **Feature flags**: activar funcionalidades progresivamente tras el despliegue.  
-- **Monitoreo post-deploy**: integrar alertas (ej. con Azure Monitor o Sentry) para detectar errores en producción.  
-- **Integración con Renovate**: combinar CI/CD con gestión automática de dependencias.  
-- **Paralelización**: ejecutar tests en paralelo para reducir tiempos de pipeline.  
-
-
 ## 16.8. Monitorización continua y logging en aplicaciones Angular productivas
 
-Cuando una aplicación Angular 20 llega a producción, el reto ya no es solo que funcione: es **garantizar su estabilidad, detectar problemas en tiempo real y entender el comportamiento de los usuarios**.  
-Aquí entran en juego dos prácticas clave: **logging estructurado** y **monitorización continua**.  
-Ambas nos permiten anticiparnos a errores, diagnosticar incidencias y mejorar la calidad del producto de forma iterativa.
-
 ### 16.8.1. Logging en Angular
-
 El **logging** es el registro de eventos relevantes que ocurren en la aplicación.  
 En Angular, podemos apoyarnos en el servicio `LoggerService` propio o en librerías externas para estructurar mejor los logs.
 
 #### Buenas prácticas de logging
-- **Niveles de log**:  
+**Niveles de log**:  
   - `debug`: información detallada para desarrollo.  
   - `info`: eventos normales (ej. inicio de sesión).  
   - `warn`: situaciones inesperadas pero no críticas.  
   - `error`: fallos que requieren atención inmediata.  
-- **Logs estructurados**: usar objetos JSON en lugar de cadenas sueltas.  
-- **Contexto en los logs**: incluir información de usuario, módulo y acción.  
-- **Evitar datos sensibles**: nunca registrar contraseñas, tokens o información personal.  
+**Logs estructurados**: usar objetos JSON en lugar de cadenas sueltas.  
+**Contexto en los logs**: incluir información de usuario, módulo y acción.  
+**Evitar datos sensibles**: nunca registrar contraseñas, tokens o información personal. Los logs deben anonimizar datos sensibles para cumplir con GDPR.  
 
 #### Ejemplo de servicio de logging
 ```ts
@@ -652,7 +628,6 @@ export class LoggerService {
 ```
 
 ### 16.8.2. Integración con herramientas externas
-
 En entornos productivos, los logs deben enviarse a sistemas centralizados:
 
 - **Sentry**: captura errores y stack traces en tiempo real.  
@@ -661,7 +636,6 @@ En entornos productivos, los logs deben enviarse a sistemas centralizados:
 - **Azure Application Insights** o **Google Cloud Logging**: integraciones cloud para métricas y trazas.  
 
 Ejemplo de integración con Sentry:
-
 ```ts
 import * as Sentry from "@sentry/angular";
 
@@ -673,7 +647,6 @@ Sentry.init({
 ```
 
 ### 16.8.3. Monitorización continua
-
 El logging nos dice **qué pasó**. La monitorización nos dice **cómo está funcionando la aplicación en tiempo real**.
 
 #### Métricas clave a monitorizar
@@ -688,22 +661,19 @@ El logging nos dice **qué pasó**. La monitorización nos dice **cómo está fu
 - **Dashboards en tiempo real**: Kibana, Grafana o Azure Monitor.  
 
 ### 16.8.4. Estrategia Enterprise
-
 En proyectos grandes:
 - **Centralizar logs y métricas** en un único sistema accesible a todos los equipos.  
 - **Alertas automáticas**: configurar notificaciones en Slack, Teams o email cuando se detecten errores críticos.  
-- **Correlación de eventos**: vincular logs de frontend (Angular) con logs de backend para diagnósticos completos.  
+- **Correlación de eventos**: vincular logs de frontend (Angular) con logs de backend para diagnósticos completos usando IDs de sesión o usuario.  
 - **Pruebas de resiliencia**: simular fallos en producción controlada y validar que los logs/alertas funcionan.  
 - **Retención y cumplimiento**: definir cuánto tiempo se guardan los logs y cumplir normativas (ej. GDPR).  
 
 ### 16.8.5. Ejemplo de pipeline de monitorización
-
 1. Angular registra un error con `LoggerService`.  
 2. El error se envía a Sentry con contexto (usuario, ruta, estado).  
 3. Sentry dispara una alerta en Slack.  
 4. El equipo revisa el dashboard de Kibana para correlacionar con logs de backend.  
 5. Se crea automáticamente un ticket en Jira para seguimiento.  
-
 
 ## 16.9. Checklist de buenas prácticas para proyectos enterprise en Angular 20
 
@@ -741,35 +711,22 @@ Este checklist resume los puntos clave que hemos trabajado a lo largo del tema y
 ### 16.9.5. Accesibilidad (a11y)
 - [ ] Usar HTML semántico antes de recurrir a ARIA.  
 - [ ] Añadir atributos ARIA (`aria-label`, `aria-expanded`, `role`) cuando sea necesario.  
-- [ ] Ejecutar pruebas automáticas con **axe-core** en CI/CD.  
+- [ ] Ejecutar pruebas automáticas con **axe-core** en CI/CD y auditoría de seguridad en cada release.  
 - [ ] Validar manualmente con lectores de pantalla (NVDA, VoiceOver).  
 - [ ] Incluir accesibilidad en las revisiones de código.  
 
-### 16.9.6. Rendimiento
-- [ ] Aplicar **lazy loading** en módulos y componentes pesados.  
-- [ ] Usar **Signals** para estados locales y evitar cálculos innecesarios.  
-- [ ] Configurar **SSR nativo** para mejorar SEO y tiempo de carga inicial.  
-- [ ] Monitorizar métricas Web Vitals (LCP, FID, CLS).  
-- [ ] Revisar el tamaño de bundles con `ng build --stats-json`.  
-
-### 16.9.7. Testing
-- [ ] Mantener cobertura de **unit tests** en servicios y componentes críticos.  
-- [ ] Incluir **integration tests** para flujos clave.  
-- [ ] Ejecutar **E2E tests** con Cypress o Playwright en CI/CD.  
-- [ ] Validar accesibilidad y traducciones en los tests.  
-- [ ] Automatizar pruebas de regresión visual y de rendimiento.  
-
 ### 16.9.8. CI/CD y mantenimiento
 - [ ] Configurar pipelines en **GitHub Actions** o similar con build, lint, test y deploy.  
-- [ ] Usar **Renovate** para mantener dependencias actualizadas.  
-- [ ] Integrar auditorías de seguridad (`npm audit`) en CI/CD.  
+- [ ] Usar **Renovate** para mantener dependencias actualizadas y reglas para dependencias críticas.  
+- [ ] Integrar auditorías de seguridad (`npm audit`) y accesibilidad en CI/CD.  
 - [ ] Configurar **branch protection rules** en repositorios críticos.  
 - [ ] Documentar y versionar con **SemVer** (`MAJOR.MINOR.PATCH`).  
+- [ ] Documentar el proceso de onboarding para nuevos desarrolladores, incluyendo el uso de IA y automatización.
 
 ### 16.9.9. Monitorización y logging
 - [ ] Implementar un `LoggerService` con niveles (`debug`, `info`, `warn`, `error`).  
 - [ ] Centralizar logs en sistemas como **Sentry**, **Elastic Stack** o **Application Insights**.  
 - [ ] Configurar alertas automáticas en caso de errores críticos.  
 - [ ] Correlacionar logs de frontend y backend.  
-- [ ] Revisar métricas de uso y rendimiento en dashboards (Grafana, Kibana).  
+- [ ] Revisar métricas de uso y rendimiento en dashboards (Grafana, Kibana).
 

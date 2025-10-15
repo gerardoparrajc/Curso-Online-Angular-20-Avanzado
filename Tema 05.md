@@ -288,7 +288,6 @@ interface RegisterForm {
 
 @Component({
   selector: 'app-register',
-  standalone: true,
   template: `
     <form [formGroup]="form">
       <label>
@@ -449,7 +448,6 @@ import { createErrorMessage } from './error-messages.helper';
 
 @Component({
   selector: 'app-username',
-  standalone: true,
   templateUrl: './username.component.html'
 })
 export class UsernameComponent {

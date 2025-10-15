@@ -102,15 +102,15 @@ En el testing moderno de Angular 20, no se trata solo de “probar por probar”
 
 **Componente a probar:**
 ```ts
-import { Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 
 @Component({
   selector: 'app-counter',
-  standalone: true,
   template: `
     <h1>{{ count() }}</h1>
     <button (click)="inc()">Incrementar</button>
-  `
+  `,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CounterComponent {
   count = signal(0);
@@ -251,12 +251,12 @@ import 'jest-preset-angular/setup-jest';
 
 **Componente:**
 ```ts
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 @Component({
   selector: 'app-hello',
-  standalone: true,
-  template: `<h1>{{ greet('Gerardo') }}</h1>`
+  template: `<h1>{{ greet('Gerardo') }}</h1>`,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class HelloComponent {
   greet(name: string) {
@@ -381,15 +381,15 @@ Esto es especialmente útil para componentes complejos con mucha interacción.
 
 **Componente:**
 ```ts
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 @Component({
   selector: 'app-counter',
-  standalone: true,
   template: `
     <h1>{{ value }}</h1>
     <button (click)="increment()">+1</button>
-  `
+  `,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CounterComponent {
   @Input() value = 0;

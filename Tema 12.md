@@ -51,6 +51,8 @@ Al compilar en producción (`ng build --configuration production`), Angular gene
 
 ### Ejemplo de configuración básica (`ngsw-config.json`)
 
+> Nota: Evita cachear datos sensibles (tokens, información privada) en el Service Worker. Usa la caché solo para recursos estáticos y públicos.
+
 ```json
 {
   "index": "/index.html",
@@ -274,21 +276,24 @@ function heavyComputation(input: number): number {
 #### Uso en un componente
 
 ```ts
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+
 @Component({
   selector: 'app-root',
   template: `
     <button (click)="startTask()">Iniciar cálculo</button>
     <p *ngIf="result">Resultado: {{ result }}</p>
-  `
+  `,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AppComponent {
-  result?: number;
+  result = signal<number | undefined>(undefined);
 
   startTask() {
     if (typeof Worker !== 'undefined') {
       const worker = new Worker(new URL('./app.worker', import.meta.url));
       worker.onmessage = ({ data }) => {
-        this.result = data;
+        this.result.set(data);
       };
       worker.postMessage(42); // Enviar dato al worker
     } else {
@@ -429,8 +434,9 @@ worker.onmessage = ({ data }) => {
 
 - **Cerrar workers** con `terminate()` cuando ya no se necesiten.  
 - **Evitar transferencias pesadas** de objetos grandes: usar `Transferable Objects` (`ArrayBuffer`) para mejorar rendimiento.  
-- **Centralizar la lógica de comunicación** en un servicio Angular, en lugar de manejar workers directamente en componentes.  
+- **Centralizar la lógica de comunicación** en un servicio Angular, usando RxJS o signals para integración reactiva.  
 - **Testear en navegadores reales**: aunque el soporte es amplio, hay diferencias en Safari/iOS.  
+- **Evitar acceso directo a APIs del navegador en SSR/PWA**: usa comprobaciones de entorno (`isPlatformBrowser`).
 
 
 ## 12.5. Estrategias de compatibilidad en navegadores modernos y móviles
@@ -625,6 +631,7 @@ Por eso, siempre conviene **detectar soporte** y ofrecer alternativas (ej. notif
 - **Gestionar la suscripción en backend**: guardar y actualizar las suscripciones de cada usuario.  
 - **Personalizar la experiencia**: incluir iconos, acciones rápidas y deep links en las notificaciones.  
 - **Combinar con analítica**: medir cuántos usuarios aceptan notificaciones y cuántos interactúan con ellas.  
+- **Centralizar la lógica de notificaciones en servicios Angular** y validar siempre en backend.
 
 
 ## 12.7. Integración de PWAs con Angular CLI: instalación y pruebas en dispositivos
@@ -772,6 +779,7 @@ Esto significa que, aunque el manifest es estándar, conviene **probar en distin
 - Mantener el manifest sincronizado con la identidad visual de la organización.  
 - Validar el manifest con herramientas como **Lighthouse** para detectar errores o propiedades faltantes.  
 - Probar la instalación en Android, iOS y desktop para asegurar consistencia.  
+- **Evitar acceso directo a APIs del navegador en SSR/PWA**: usa comprobaciones de entorno (`isPlatformBrowser`).
 
 
 ## 12.9. Implementación de lógica avanzada en notificaciones push (acciones y respuestas)
@@ -900,6 +908,7 @@ Una aplicación que no es accesible excluye a una parte de los usuarios. La acce
 - **Navegación por teclado**: todos los elementos interactivos deben ser accesibles sin ratón.  
 - **Mensajes claros en offline**: si la aplicación no puede cargar datos, mostrar un mensaje accesible y comprensible, no un error técnico.  
 - **Pruebas con herramientas automáticas**: Lighthouse y axe-core permiten detectar problemas de accesibilidad de forma rápida.  
+- **Lazy loading de imágenes y módulos** para mejorar accesibilidad y rendimiento.
 
 Una PWA accesible no solo cumple con estándares, sino que amplía su alcance y mejora la experiencia de todos los usuarios.
 

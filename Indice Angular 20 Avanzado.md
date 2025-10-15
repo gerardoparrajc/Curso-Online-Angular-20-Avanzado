@@ -256,3 +256,6 @@
 - Análisis de rendimiento con Angular DevTools y Chrome Profiler  
 - Documentación asistida con IA (Copilot, Cursor)  
 - Estrategias de seguridad, accesibilidad y despliegue en entornos enterprise  
+
+
+Al final de cada tema hay que pasarles el siguiente enlace: https://imagina-formacion.typeform.com/to/QDiT0xGU

@@ -10,6 +10,7 @@ No se trata solo de nuevas APIs, sino de un cambio de paradigma en cómo Angular
 - En Angular 20, el enfoque es **standalone-first**:  
   - Los módulos ya no son necesarios en la mayoría de los casos.  
   - La API de `bootstrapApplication` y `provide*` (ej. `provideHttpClient`, `provideRouter`) es la forma recomendada de configurar la aplicación.  
+  - Los imports en el decorador de componentes deben ser explícitos y los pipes también pueden ser standalone.  
 - Esto simplifica la arquitectura y reduce el boilerplate.
 
 ### 17.1.2. Signals como modelo de reactividad principal
@@ -97,16 +98,11 @@ En Angular 20, estas directivas han sido reemplazadas (aunque siguen funcionando
 #### Ahora (Angular 20)
 ```html
 <ul>
-  @for (item of items; track item.id; let i = $index) {
+  @for (item of items; let i = $index) {
     <li>{{ i + 1 }} - {{ item.name }}</li>
   }
 </ul>
 ```
-
-**Novedades**:
-- Uso de `track` directamente en la sintaxis, más claro que `trackBy`.  
-- Variables contextuales (`$index`, `$first`, `$last`) siguen disponibles.  
-- Bloques `@empty` para manejar listas vacías.  
 
 Ejemplo con `@empty`:
 ```html
@@ -116,6 +112,11 @@ Ejemplo con `@empty`:
   <p>No hay elementos disponibles</p>
 }
 ```
+
+**Novedades**:
+- Uso de `track` directamente en la sintaxis, más claro que `trackBy` (solo si los items tienen un id).  
+- Variables contextuales (`$index`, `$first`, `$last`) siguen disponibles.  
+- Bloques `@empty` para manejar listas vacías y mejorar UX y SEO.  
 
 ### 17.2.4. Migración progresiva
 
@@ -193,6 +194,7 @@ export class UserCardComponent {
   user = { name: 'Gerardo' };
 }
 ```
+// Los pipes también pueden ser standalone y se importan igual que los módulos.
 
 #### Paso 3: Sustituir imports de módulos por imports directos
 - En lugar de importar `SharedModule`, cada componente importa lo que necesita (`CommonModule`, `FormsModule`, etc.).  
@@ -347,6 +349,7 @@ bootstrapApplication(AppComponent, {
   ]
 });
 ```
+// Se recomienda usar cookies seguras y signals para el estado de autenticación.
 
 ### 17.4.4. Estrategia de migración progresiva
 
@@ -421,7 +424,7 @@ Angular 20 permite combinar **Forms API** con **Signals**, lo que abre la puerta
 
 #### Ejemplo con Signals
 ```ts
-import { Component, signal, effect } from '@angular/core';
+import { Component, signal, effect, input } from '@angular/core';
 import { FormControl, Validators } from '@angular/forms';
 
 @Component({
@@ -429,11 +432,14 @@ import { FormControl, Validators } from '@angular/forms';
   standalone: true,
   template: `
     <input [formControl]="nameControl" placeholder="Nombre" />
-    <p *ngIf="nameInvalid()">El nombre es obligatorio</p>
+    @if (nameInvalid()) {
+      <p>El nombre es obligatorio</p>
+    }
   `
 })
 export class ProfileFormComponent {
-  nameControl = new FormControl('', { validators: [Validators.required] });
+  static readonly initialName = input<string>('');
+  nameControl = new FormControl(ProfileFormComponent.initialName(), { validators: [Validators.required] });
   name = signal(this.nameControl.value);
 
   constructor() {
@@ -449,11 +455,7 @@ export class ProfileFormComponent {
   nameInvalid = () => this.nameControl.invalid && this.nameControl.touched;
 }
 ```
-
-**Ventajas**:
-- Signals permiten reaccionar automáticamente a cambios de estado.  
-- Eliminan la necesidad de `async pipes` o `valueChanges` en muchos casos.  
-- Integración más limpia con el nuevo modelo de detección de cambios.  
+// Se recomienda evitar formularios template-driven en Angular 20+.
 
 ### 17.5.3. Estrategia de migración progresiva
 
@@ -500,6 +502,7 @@ bootstrapApplication(AppComponent, {
   ngZone: 'noop'
 });
 ```
+// Nota: Usar ngZone: 'noop' requiere que todo el estado reactivo esté gestionado por signals o APIs explícitas.
 
 Esto indica a Angular que no use Zone.js para el ciclo de detección de cambios.  
 A partir de aquí, la reactividad depende de **Signals** y de APIs explícitas como `ChangeDetectorRef`.
@@ -799,18 +802,18 @@ describe('Página de login', () => {
 ### 17.9.4. Estrategia de migración progresiva
 
 1. **Mantener Karma/Jasmine temporalmente** mientras se introduce Jest en paralelo.  
-2. **Migrar primero pruebas unitarias simples** (pipes, servicios).  
+2. **Migrar pruebas unitarias simples** (pipes, servicios).  
 3. **Configurar Jest en CI/CD** y validar que los tiempos de ejecución mejoran.  
 4. **Reemplazar Protractor (si aún existe) por Cypress** en pruebas E2E.  
 5. **Eliminar Karma/Jasmine** una vez migradas todas las pruebas.  
 
 ### 17.9.5. Buenas prácticas
-
 - Usar **Jest para unit tests** y **Cypress para E2E**, no mezclar roles.  
 - Mantener **tests rápidos y aislados** en Jest; reservar Cypress para flujos críticos.  
 - Integrar **axe-core** en Cypress para validar accesibilidad automáticamente.  
 - Ejecutar Jest en cada commit y Cypress en cada PR o nightly build.  
 - Documentar la estrategia de testing para que todo el equipo la adopte.  
+- Integrar los tests de accesibilidad en el pipeline de CI/CD.
 
 
 ## 17.10. Herramientas de apoyo para la migración: Angular CLI, Angular Update Guide y checklists
@@ -860,7 +863,6 @@ Migrar de Angular 17 a 20 puede incluir pasos como:
 
 
 ### 17.10.3. Checklists de migración
-
 Un **checklist** es la forma más práctica de asegurar que nada se queda atrás.  
 En proyectos Enterprise, donde participan múltiples equipos, los checklists permiten **coordinar y auditar** el avance de la migración.
 
@@ -876,12 +878,74 @@ En proyectos Enterprise, donde participan múltiples equipos, los checklists per
 - [ ] Ajustar SSR con Hydration incremental.  
 - [ ] Sustituir Karma/Jasmine por Jest y Cypress.  
 - [ ] Configurar monitorización y logging en producción.  
+- [ ] Usar linters y reglas de ESLint para detectar patrones obsoletos.  
+- [ ] Documentar la migración y versionar con SemVer.  
+- [ ] Integrar tests de accesibilidad en CI/CD.
 
-### 17.10.4. Estrategia Enterprise
 
-- **Automatizar al máximo** con Angular CLI.  
-- **Planificar con Update Guide** antes de tocar código.  
-- **Usar checklists compartidos** en herramientas de gestión (Jira, Notion, Confluence).  
-- **Iterar por fases**: no migrar todo de golpe, sino por módulos o features.  
-- **Validar con CI/CD**: cada paso debe pasar por tests unitarios, E2E y auditorías de accesibilidad.  
+## 17.11. Estrategia Enterprise para la migración a Angular 20
+
+La migración a Angular 20 puede parecer una tarea monumental, especialmente en aplicaciones grandes y complejas.  
+Sin embargo, con una planificación cuidadosa y un enfoque sistemático, es posible realizar la migración de manera eficiente y con un riesgo mínimo.  
+En esta sección, presentamos una estrategia recomendada para llevar a cabo la migración en un entorno empresarial.
+
+### 17.11.1. Fases de la migración
+
+1. **Preparación**:
+   - Actualizar a la última versión de Angular 17.x.
+   - Revisar y actualizar todas las dependencias externas.
+   - Realizar una copia de seguridad completa del proyecto.
+
+2. **Capacitación y familiarización**:
+   - Capacitar al equipo en las nuevas características y cambios de Angular 20.
+   - Revisar la documentación oficial de migración y las notas de la versión.
+
+3. **Migración inicial**:
+   - Usar Angular CLI para realizar una migración automática de las dependencias.
+   - Resolver manualmente cualquier conflicto o advertencia que surja durante la migración.
+
+4. **Refactorización de código**:
+   - Reemplazar patrones obsoletos (ej. `*ngIf`, `*ngFor`) por las nuevas sintaxis (`@if`, `@for`).
+   - Migrar componentes y módulos a la nueva arquitectura standalone.
+   - Actualizar guards, resolvers e interceptors a las nuevas APIs funcionales.
+
+5. **Optimización de formularios**:
+   - Convertir formularios reactivos a Typed Forms.
+   - Integrar Signals en la gestión del estado de los formularios.
+
+6. **Ajustes de rendimiento**:
+   - Activar el modo zoneless y ajustar el código para asegurar la compatibilidad.
+   - Migrar imágenes y otros activos multimedia a las nuevas APIs optimizadas.
+
+7. **Pruebas y validación**:
+   - Ejecutar pruebas unitarias y de integración para validar el funcionamiento de la aplicación.
+   - Realizar pruebas de rendimiento y ajustar según sea necesario.
+
+8. **Despliegue y monitoreo**:
+   - Desplegar la aplicación migrada en un entorno de staging.
+   - Monitorear el rendimiento y los errores en tiempo real.
+   - Realizar ajustes finales antes del despliegue en producción.
+
+### 17.11.2. Buenas prácticas para la migración en Enterprise
+
+- **Planificación detallada**: dedicar tiempo a planificar cada fase de la migración, identificando riesgos y dependencias.
+- **Pruebas exhaustivas**: asegurar que todas las funcionalidades críticas están cubiertas por pruebas automatizadas antes de iniciar la migración.
+- **Capacitación continua**: proporcionar recursos y tiempo para que el equipo se familiarice con las nuevas herramientas y técnicas.
+- **Revisiones de código**: implementar revisiones de código regulares para asegurar que se siguen las mejores prácticas y se evita la introducción de nuevos problemas.
+- **Despliegue gradual**: considerar un despliegue gradual de la migración, comenzando por módulos o características menos críticas.
+- **Documentación clara**: mantener una documentación clara y actualizada sobre el estado de la migración, decisiones tomadas y próximos pasos.
+
+### 17.11.3. Herramientas recomendadas
+
+- **Angular CLI**: para la gestión de la migración y actualización de dependencias.
+- **Jest**: para pruebas unitarias rápidas y eficientes.
+- **Cypress**: para pruebas end-to-end y validación de flujos críticos.
+- **ESLint**: para la detección de patrones obsoletos y aseguramiento de la calidad del código.
+- **Lighthouse**: para auditorías de rendimiento y accesibilidad.
+
+### 17.11.4. Conclusión
+
+La migración a Angular 20 es una oportunidad para modernizar y optimizar aplicaciones, aprovechando las últimas mejoras en el framework.  
+Si bien el proceso de migración puede parecer desalentador, con una planificación cuidadosa, capacitación y un enfoque sistemático, es posible realizar la migración de manera efectiva y con un riesgo mínimo.  
+Anime a su equipo a adoptar las nuevas características y mejoras, y aproveche al máximo lo que Angular 20 tiene para ofrecer.
 

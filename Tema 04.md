@@ -368,7 +368,6 @@ import { TooltipDirective } from './tooltip.directive';
 
 @Component({
   selector: 'app-user-card',
-  standalone: true,
   template: `<div class="card">Contenido de la tarjeta</div>`,
   hostDirectives: [
     {
@@ -424,7 +423,6 @@ Ahora, cualquier componente de botón puede heredar esta directiva:
 ```ts
 @Component({
   selector: 'app-primary-button',
-  standalone: true,
   template: `<button class="btn-primary"><ng-content /></button>`,
   hostDirectives: [
     {

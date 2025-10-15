@@ -165,6 +165,10 @@ Al abrir la aplicación en el navegador, si inspeccionas el **HTML inicial** ver
 - **Evitar dependencias del `window` o `document`** directamente en componentes, ya que no existen en el servidor.  
 - **Probar con Lighthouse** para verificar mejoras en LCP y SEO tras habilitar SSR.  
 
+⚠️ **Advertencia importante:** Nunca accedas directamente a APIs del navegador (`window`, `document`, `navigator`) en componentes o servicios que se ejecutan en SSR. Si necesitas acceder a ellas, encapsula la lógica en servicios y usa comprobaciones de entorno (`isPlatformBrowser`) para evitar errores en el servidor.
+
+**Recomendación:** Usa siempre `ChangeDetectionStrategy.OnPush` en los componentes que se renderizan en SSR para minimizar ciclos de cambio y mejorar el rendimiento.
+
 
 ## 9.3. Prerender híbrido: cuándo conviene y cómo implementarlo
 
@@ -326,6 +330,9 @@ En Angular 19, la hydration incremental estaba en **preview**. Con Angular 20, p
 - **Combinar con loaders externos**: imágenes y recursos pueden diferirse junto con la lógica de sus componentes.  
 - **Medir con Lighthouse y Angular DevTools**: validar mejoras en TTI y LCP tras aplicar hydration incremental.  
 
+**Manejo de errores de hydration:**
+Si Angular detecta problemas durante la hydration (por ejemplo, diferencias entre el HTML renderizado en servidor y el esperado en cliente), los errores aparecerán en la consola y en Angular DevTools. Revisa la pestaña de hydration en DevTools para identificar componentes problemáticos y corrige el uso de APIs incompatibles o dependencias no sincronizadas.
+
 
 ## 9.5. Comparación entre hydration parcial e incremental
 
@@ -375,7 +382,7 @@ La **hydration incremental** es más sofisticada: en lugar de decidir qué nunca
   - Más compleja de configurar.  
   - Requiere pensar en triggers adecuados para cada bloque.  
 
-👉 Ejemplo: en un e‑commerce, la ficha del producto se hidrata al instante, pero la sección de “productos recomendados” se hidrata solo cuando el usuario hace scroll hacia ella.  
+👉 Ejemplo: en un e‑commerce, la ficha del producto se hidrata al instante, pero la sección de “productos recomendados” se hidrata solo cuando el usuario hace scroll.  
 
 ### 9.5.4. Comparación directa
 
@@ -672,5 +679,5 @@ El renderizado en servidor y la hydration incremental aportan grandes beneficios
 
 - **Angular DevTools + Chrome Profiler**: medir ciclos de cambio, tiempos de hydration y correlación con métricas de navegador.  
 - **Logs de servidor**: registrar tiempos de renderizado SSR y errores de hydration.  
-- **Alertas en producción**: detectar caídas de rendimiento o fallos de renderizado antes de que impacten a usuarios.  
+- **Alertas en producción**: detectar caídas de rendimiento o fallos de renderizado antes de que impacten a usuarios.
 

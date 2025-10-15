@@ -226,11 +226,11 @@ Ambas necesitan:
 
 Puedes crear tres librerías:
 
-- `shared-ui`: con `ProductCardComponent`, `ContactFormComponent`.
-- `core-auth`: con `AuthService`, `AuthGuard`.
+- `shared-ui`: con `ProductCardComponent`, `ContactFormComponent` (preferentemente como standalone components y usando signals para estado).
+- `core-auth`: con `AuthService`, `AuthGuard` (servicios standalone y signals para estado).
 - `shared-forms`: con validadores reutilizables y formularios tipados.
 
-Cada app importa solo lo que necesita, y cualquier mejora en la librería beneficia a ambas sin duplicar esfuerzo.
+Cada app importa solo lo que necesita usando alias definidos en `tsconfig.base.json`, y cualquier mejora en la librería beneficia a ambas sin duplicar esfuerzo.
 
 
 ## 11.3. Creación de Schematics personalizados para automatizar generación de código
@@ -248,7 +248,7 @@ En lugar de confiar en que cada desarrollador recuerde estas decisiones, el Sche
 
 ### Ejemplo completo: un Schematic para generar un componente con OnPush y test inicial
 
-Para ilustrar el valor de los Schematics, veamos un ejemplo real: un generador de componentes que siempre cree la misma estructura, con `ChangeDetectionStrategy.OnPush`, un HTML base, un archivo de estilos y un test inicial en Jest.
+Para ilustrar el valor de los Schematics, veamos un ejemplo real: un generador de componentes que siempre crea la misma estructura, con `ChangeDetectionStrategy.OnPush`, un HTML base, un archivo de estilos y un test inicial en Jest.
 
 #### Estructura del Schematic
 
@@ -328,7 +328,7 @@ export function customComponent(options: any): Rule {
 ##### `__name__.component.ts`
 
 ```ts
-import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 @Component({
   selector: 'app-<%= dasherize(name) %>',
@@ -338,6 +338,8 @@ import { Component, ChangeDetectionStrategy } from '@angular/core';
 })
 export class <%= classify(name) %>Component {}
 ```
+
+> Nota: Si el componente gestiona estado, se recomienda usar signals en vez de variables tradicionales.
 
 ##### `__name__.component.html`
 
@@ -639,13 +641,15 @@ export class AppRoutingModule {}
 Aunque cada microfrontend es autónomo, a menudo necesitan comunicarse.  
 Algunas estrategias comunes:
 
-- **Servicios compartidos**: expuestos desde una librería común dentro del monorepo.  
-- **Eventos globales**: usando RxJS Subjects o Signals compartidos.  
-- **State management centralizado**: un store común (NgRx, Signals Store) consumido por host y remotes.  
+- **Servicios compartidos**: expuestos desde una librería común dentro del monorepo, preferentemente como servicios standalone y usando signals para estado.
+- **Eventos globales**: usando RxJS Subjects o Signals compartidos.
+- **State management centralizado**: un store común (NgRx, Signals Store) consumido por host y remotes.
 
 Ejemplo simple con un servicio compartido:
 
 ```ts
+import { Injectable, signal } from '@angular/core';
+
 @Injectable({ providedIn: 'root' })
 export class CartService {
   private items = signal<string[]>([]);
@@ -683,13 +687,7 @@ En cambio, si el equipo es pequeño, el dominio es acotado y los despliegues son
 - **Gestionar dependencias compartidas**: evitar duplicar Angular, librerías de UI o utilidades comunes.  
 - **Automatizar la integración**: pipelines de CI/CD que publiquen y consuman microfrontends sin intervención manual.  
 - **Observar el rendimiento**: demasiados microfrontends mal orquestados pueden degradar la experiencia.  
-
-
-Los **Microfrontends** son una estrategia poderosa para escalar aplicaciones y equipos en entornos Enterprise, pero no son una bala de plata.  
-Su valor aparece cuando la complejidad organizativa y técnica supera lo que un monolito puede manejar cómodamente.  
-Con **Module Federation**, Angular 20 permite que esta estrategia sea viable y productiva: cada equipo puede trabajar en su dominio funcional, desplegarlo de forma independiente y, al mismo tiempo, integrarse en una experiencia de usuario fluida y coherente.  
-
-La clave está en aplicarlos con criterio: **cuando la autonomía, la escalabilidad y la independencia de despliegue son más importantes que la simplicidad inicial**.
+- **Usar standalone components y signals** en microfrontends y librerías compartidas para aprovechar las ventajas de Angular 20+.
 
 
 ## 11.6. Estrategias de seguridad, despliegue y monitorización en arquitecturas distribuidas
@@ -716,6 +714,8 @@ En un sistema compuesto por múltiples aplicaciones y microfrontends, la superfi
 - **Políticas de Content Security Policy (CSP)**  
   - Restringir orígenes de scripts y estilos.  
   - Evitar inyecciones de código en microfrontends cargados dinámicamente.  
+
+> ⚠️ **Advertencia SSR/Microfrontends:** Evita acceder directamente a APIs del navegador (`window`, `document`, `navigator`) en servicios o componentes que puedan ejecutarse en SSR o microfrontends. Usa comprobaciones de entorno (`isPlatformBrowser`) para evitar errores y facilitar la integración y seguridad.
 
 ### Estrategias de despliegue
 
@@ -763,5 +763,5 @@ En arquitecturas distribuidas, el reto no es solo desplegar, sino **entender qu�
 - **Automatización total**: desde el build hasta el despliegue y rollback.  
 - **Observabilidad desde el diseño**: instrumentar la aplicación con métricas y trazas desde el inicio.  
 - **Gobernanza clara**: definir qué equipo es responsable de cada microfrontend, librería o servicio.  
-- **Pruebas en producción controladas**: usar *dark launches* y *A/B testing* para validar nuevas funcionalidades.  
+- **Pruebas en producción controladas**: usar *dark launches* y *A/B testing* para validar nuevas funcionalidades.
 

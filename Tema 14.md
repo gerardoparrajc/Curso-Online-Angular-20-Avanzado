@@ -600,7 +600,7 @@ En aplicaciones grandes, no conviene cargar todas las traducciones de golpe.
 Opciones:
 
 - **Carga estática global**: todos los idiomas se cargan al inicio (simple, pero pesado).  
-- **Carga diferida por módulo**: cada módulo carga sus traducciones al ser usado.  
+- **Carga diferida por módulo**: cada módulo carga sus traducciones al ser usado, usando `TranslateModule.forChild({ extend: true })`.  
 - **Carga dinámica desde backend**: las traducciones se almacenan en una API y se descargan bajo demanda.  
 
 Ejemplo de carga modular:
@@ -686,10 +686,8 @@ export class LanguageService {
 
 ### 14.6.2. Crear un formulario reactivo para el selector
 
-En el componente standalone:
-
 ```ts
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
 import { ReactiveFormsModule, FormControl } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
 import { LanguageService } from './language.service';
@@ -710,7 +708,9 @@ import { toSignal } from '@angular/core/rxjs-interop';
     </form>
 
     <p>{{ 'WELCOME' | translate }}</p>
-  `
+    <p>Idioma actual: {{ languageService.currentLang() | uppercase }}</p>
+  `,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class LanguageSelectorComponent implements OnInit {
   languageService = inject(LanguageService);
@@ -778,6 +778,8 @@ Esto configura automáticamente el renderizado en servidor y cliente, sin necesi
 - **Accesibilidad global**: usuarios de distintas regiones reciben la versión adecuada de inmediato.  
 
 ### 14.7.3. Estrategia de rutas multilingües: incluir el idioma en la URL
+
+> Recomendación Angular 20+: Sincroniza el idioma de la URL con signals en el servicio de idioma para que la UI reaccione automáticamente al cambio de idioma, tanto en SSR como en cliente.
 
 #### a) Definir rutas con prefijo de idioma
 
@@ -1108,6 +1110,7 @@ Esto asegura que el contenido traducido está presente en el HTML inicial, lo qu
 - **Incluir pruebas de rutas multilingües** (`/es`, `/en`, `/fr`).  
 - **Automatizar pruebas SSR** en la pipeline de CI/CD.  
 - **Validar fallback**: si falta una clave en un idioma, debe mostrarse la del idioma por defecto.  
+- **Automatizar la validación de claves** con extractores y scripts en CI/CD para evitar duplicados y claves huérfanas.
 
 El testing en aplicaciones multilingües no es un añadido opcional: es la garantía de que la experiencia del usuario será consistente en todos los idiomas y que la aplicación cumplirá con los requisitos de SEO y accesibilidad global.  
 Con una estrategia que combine **unit tests, integration tests, E2E y SSR tests**, podemos asegurar que la internacionalización no se convierta en un punto débil, sino en una fortaleza de la aplicación.
@@ -1123,8 +1126,9 @@ A continuación, se presentan las mejores prácticas y recomendaciones para gara
 
 - **Modularizar las traducciones**: dividir los archivos por dominio o feature (`auth.json`, `dashboard.json`, `errors.json`) en lugar de un único archivo gigante.  
 - **Claves semánticas y jerárquicas**: usar estructuras como `auth.login.title` en lugar de claves planas.  
-- **Centralizar la lógica de idioma** en un servicio (`LanguageService`) que gestione idioma actual, persistencia y sincronización con rutas.  
+- **Centralizar la lógica de idioma** en un servicio (`LanguageService`) que gestione idioma actual, persistencia y sincronización con rutas y signals.  
 - **Prefijos de idioma en la URL** (`/es`, `/en`, `/fr`) para SEO y claridad.  
+- **Evitar duplicados y claves huérfanas**: automatizar la validación con extractores y scripts en CI/CD.
 
 ### 14.10.2. Procesos de traducción
 

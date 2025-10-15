@@ -759,17 +759,21 @@ En lugar de verlos como rivales, podemos verlos como **capas complementarias**: 
 
 ### 13.8.2. Estrategias de integración
 
+> Recomendación Angular 20+: Convierte los observables del store en signals en la capa de presentación usando `toSignal` para aprovechar la reactividad moderna y simplificar la integración con la nueva API de Angular.
+
 #### 1. Signals como capa de presentación sobre NGRX
 Una práctica común es usar NGRX para almacenar el estado global y exponerlo a los componentes a través de **Selectors**.  
 En el componente, ese observable puede convertirse en un Signal para integrarse mejor con la nueva API reactiva de Angular:
 
 ```ts
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { selectUserName } from './store/user.selectors';
 
 @Component({
   selector: 'app-header',
-  template: `<h1>Bienvenido, {{ userName() }}</h1>`
+  template: `<h1>Bienvenido, {{ userName() }}</h1>`,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class HeaderComponent {
   userName = toSignal(this.store.select(selectUserName));
@@ -830,6 +834,7 @@ effect(() => {
 - **Usar selectors de NGRX para datos compartidos** y signals para cálculos inmediatos en la UI.  
 - **Mantener Effects en NGRX para side effects globales** y `effect()` de Signals para lógica local.  
 - **Pensar en capas**: NGRX como la base estructural, Signals como la capa de interacción rápida.  
+- **Utilizar Angular DevTools y Redux DevTools** para depuración y trazabilidad del estado y las acciones.
 
 La combinación de **NGRX y Signals** no es un dilema, sino una oportunidad.  
 NGRX sigue siendo la columna vertebral para aplicaciones grandes y distribuidas, mientras que Signals aporta fluidez y simplicidad en la capa de presentación.  
